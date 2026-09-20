@@ -15,6 +15,10 @@ http://yourwebadress/solarertrag.php
 
 //check cookie and $_POST['show']
 
+require_once("mysql.php");
+
+date_default_timezone_set('Europe/Zurich');
+
 $switch_array = array("yield", "accu", "predday", "voltage", "current", "pdc", "gridday", "numbersmonth", "predmonth", "avg", "gridmonth", "numbersyear", "percent", "gridyear");
 
 if (empty($_POST['show']) and (!isset($_COOKIE['values']))) {
@@ -66,7 +70,7 @@ include 'lang.php';
 
 // Which font to use in the graphs
 // for Windows based servers look at C:/Windows/Fonts for appropriate fonts
-$fontfile="/usr/share/fonts/truetype/ttf-dejavu/DejaVuSansMono.ttf";
+$fontfile="/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf";
 
 // Check other POST vars
 $period = '';
@@ -338,7 +342,7 @@ if (!preg_match("/[0-9]?[0-9]\.[0-9]?[0-9]\.[0-9][0-9][0-9][0-9]/", "$day.$month
 								echo '<tr><td width="30%"><b>', ${
 'text9'.$lang}, '</b></td><td class="right2"><b>', $sys, '</b></td>'."\n";
 								echo '<td class="left">', ${
-'text10'.$lang}, '</td><td align="right"><b>', round( mysql_result( $result, 0, 4) * 0.3241, 0), '</b> CHF</td>'."\n";
+'text10'.$lang}, '</td><td align="right"><b>', round( mysql_result( $result, 0, 4) * 0.15, 0), '</b> CHF</td>'."\n";
 								echo '</tr></table>'."\n";
 								echo $text;
 								echo "</form>\n";

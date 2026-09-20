@@ -15,7 +15,6 @@ function draw_day($start, $end, $pred_day, $image_name, $table, $fontfile, $show
 	// Select data from given day
 	// If you are experiencing problems with the value 'kdy' especially the days very first 'kdy' is equal to the last one of the previous day comment in the next line and comment out the following one. Be aware: This is !!!untested!!! Don't slap me if something's going wrong!
 	$result1 = @mysql_query("SELECT HOUR(created) AS hour, MINUTE(created) AS minute, pac, kdy FROM $table WHERE created BETWEEN '$start' AND '$end' LIMIT 1, 999999999") or die(mysql_error());
-	//$result1 = @mysql_query("SELECT HOUR(created) AS hour, MINUTE(created) AS minute, pac FROM $table WHERE created BETWEEN '$start' AND '$end'") or die(mysql_error());
 	$result2 = @mysql_query("SELECT HOUR(created) AS hour, MINUTE(created) AS minute, kdy, udc1, udc2, udc3, idc1, idc2, idc3 FROM $table WHERE created BETWEEN '$start' AND '$end'") or die(mysql_error());
 
 	if (mysql_num_rows($result1) == 0)
@@ -25,7 +24,6 @@ function draw_day($start, $end, $pred_day, $image_name, $table, $fontfile, $show
 		$white = imagecolorallocate($image, 255, 255, 255);
 		imagefill($image, 0, 0, $white);
 		imagepng($image, $image_name);
-		imagedestroy($image);
 		return $GLOBALS["error3".$GLOBALS['lang']] . '<br />';
 	}
 
@@ -39,8 +37,8 @@ function draw_day($start, $end, $pred_day, $image_name, $table, $fontfile, $show
 	$maxpac = 13440;
 	$maxkdy = 100;
 	$maxidc = 10;
-	$maxudc = 650;
-	$minudc = 400;
+	$maxudc = 800;
+	$minudc = 0;
 
 	$lastidc1 = 0;
 	$lastidc2 = 0;
@@ -64,7 +62,7 @@ function draw_day($start, $end, $pred_day, $image_name, $table, $fontfile, $show
 	$vert_px = 30;
 	// Height = number of lines * px per line + px per line (for 0-line) + gap
 	$gap = 50;
-	$height = $maxpac / $step_w * $vert_px + $gap + 10;
+	$height = (int)($maxpac / $step_w * $vert_px + $gap + 10);
 	// Create image, prepare colors and set background to white
 	$image = imagecreatetruecolor($width, $height);
 	// get the colors
@@ -164,9 +162,9 @@ function draw_day($start, $end, $pred_day, $image_name, $table, $fontfile, $show
 				// Calculate y position with logged pac
 				$pac = $row['pac'] / $step_w * $vert_px;
 				// Draw pac line
-				imageline($image, $xpos, $height - $gap, $xpos, $height - $gap - $pac, $yellow2);
+				imageline($image, $xpos, (int)($height - $gap), $xpos, (int)($height - $gap - $pac), $yellow2);
 				if ($xpos > ($lastxpos + 1)) {
-					imageline($image, $xpos-1, $height - $gap, $xpos-1, $height - $gap - $pac, $yellow2);
+					imageline($image, $xpos-1, (int)($height - $gap), $xpos-1, (int)($height - $gap - $pac), $yellow2);
 				}
 			}
 			$lastxpos = $xpos;
@@ -176,7 +174,7 @@ function draw_day($start, $end, $pred_day, $image_name, $table, $fontfile, $show
 	// Draw prediction line
 	if (preg_match('/predday/', $show_text)) {
 		$pred = $pred_day / $step_kdy * $vert_px;
-		imageline($image, 12, $height - $pred - $gap, $width - 122, $height - $pred - $gap, $blue);
+		imageline($image, 12, (int)($height - $pred - $gap), $width - 122, (int)($height - $pred - $gap), $blue);
 	}
 
 	// Draw other logged values: kdy, idc, udc
@@ -184,7 +182,7 @@ function draw_day($start, $end, $pred_day, $image_name, $table, $fontfile, $show
 	$kdyLast = 0;
 	while($row = mysql_fetch_assoc($result2)) {
 		// Determine x position
-		$xpos = ($row['hour'] - $rise) * $px_per_hour + $row['minute'] / 60 * $px_per_hour + 25;
+		$xpos = (int)(($row['hour'] - $rise) * $px_per_hour + $row['minute'] / 60 * $px_per_hour + 25);
 			
 		// skip over period with missing data
 		if (($xpos - $lastxpos) > 4) {
@@ -201,14 +199,14 @@ function draw_day($start, $end, $pred_day, $image_name, $table, $fontfile, $show
 		if (preg_match('/accu/', $show_text)) {
 			$kdy = $kdylast / $step_kdy * $vert_px;
 			// Draw kdy dot
-			imagesetpixel($image, $xpos, $height - $gap - $kdy, $blue);
-			imagesetpixel($image, $xpos-1, $height - $gap - $kdy, $blue);
+			imagesetpixel($image, $xpos, (int)($height - $gap - $kdy), $blue);
+			imagesetpixel($image, $xpos-1, (int)($height - $gap - $kdy), $blue);
 		}
 
 		// draw idc1 ..  idc3
 		if (preg_match('/current/', $show_text)) {
 
-			$idc = $row['idc1'] / 100 / $step_idc * $vert_px;
+			$idc = (int)($row['idc1'] / 100 / $step_idc * $vert_px);
 			if ($lastidc1 == 0) {
 				imagesetpixel($image, $xpos, $height - $gap - $idc, $red);
 			} else {
@@ -218,9 +216,9 @@ function draw_day($start, $end, $pred_day, $image_name, $table, $fontfile, $show
 
 			$idc = $row['idc2'] / 100 / $step_idc * $vert_px;
 			if ($lastidc2 == 0) {
-				imagesetpixel($image, $xpos, $height - $gap - $idc, $green);
+				imagesetpixel($image, $xpos, (int)($height - $gap - $idc), $green);
 			} else {
-				imageline($image, $lastxpos, $height - $gap - $lastidc2, $xpos, $height - $gap - $idc, $green);
+				imageline($image, $lastxpos, (int)($height - $gap - $lastidc2), $xpos, (int)($height - $gap - $idc), $green);
 			}
 			$lastidc2 = $idc;
 
@@ -239,17 +237,17 @@ function draw_day($start, $end, $pred_day, $image_name, $table, $fontfile, $show
 
 			$udc = (($row['udc1'] / 10) - $minudc) / $step_udc * $vert_px;
 			if ($lastudc1 == 0) {
-				imagesetpixel($image, $xpos, $height - $gap - $udc, $red);
+				imagesetpixel($image, $xpos, (int)($height - $gap - $udc), $red);
 			} else {
-				imageline($image, $lastxpos, $height - $gap - $lastudc1, $xpos, $height - $gap - $udc, $red);
+				imageline($image, $lastxpos, (int)($height - $gap - $lastudc1), $xpos, (int)($height - $gap - $udc), $red);
 			}
 			$lastudc1 = $udc;
 
 			$udc = (($row['udc2'] / 10) - $minudc) / $step_udc * $vert_px;
 			if ($lastudc2 == 0) {
-				imagesetpixel($image, $xpos, $height - $gap - $udc, $green);
+				imagesetpixel($image, $xpos, (int)($height - $gap - $udc), $green);
 			} else {
-				imageline($image, $lastxpos, $height - $gap - $lastudc2, $xpos, $height - $gap - $udc, $green);
+				imageline($image, $lastxpos, (int)($height - $gap - $lastudc2), $xpos, (int)($height - $gap - $udc), $green);
 			}
 			$lastudc2 = $udc;
 
@@ -267,17 +265,17 @@ function draw_day($start, $end, $pred_day, $image_name, $table, $fontfile, $show
 
 			$pdc = ($row['udc1'] * $row['idc1'] / 1000) / $step_w * $vert_px; // kW
 			if ($lastpdc1 == 0) {
-				imagesetpixel($image, $xpos, $height - $gap - $pdc, $red);
+				imagesetpixel($image, $xpos, (int)($height - $gap - $pdc), $red);
 			} else {
-				imageline($image, $lastxpos, $height - $gap - $lastpdc1, $xpos, $height - $gap - $pdc, $red);
+				imageline($image, $lastxpos, (int)($height - $gap - $lastpdc1), $xpos, (int)($height - $gap - $pdc), $red);
 			}
 			$lastpdc1 = $pdc;
 
 			$pdc = ($row['udc2'] * $row['idc2'] / 1000) / $step_w * $vert_px; // kW
 			if ($lastpdc2 == 0) {
-				imagesetpixel($image, $xpos, $height - $gap - $pdc, $green);
+				imagesetpixel($image, $xpos, (int)($height - $gap - $pdc), $green);
 			} else {
-				imageline($image, $lastxpos, $height - $gap - $lastpdc2, $xpos, $height - $gap - $pdc, $green);
+				imageline($image, $lastxpos, (int)($height - $gap - $lastpdc2), $xpos, (int)($height - $gap - $pdc), $green);
 			}
 			$lastpdc2 = $pdc;
 
@@ -296,7 +294,6 @@ function draw_day($start, $end, $pred_day, $image_name, $table, $fontfile, $show
 	imagefttext($image, 10, 0, $width - 200, 10, $black, $fontfile, $kdylast . " kWh");
 
 	imagepng($image, $image_name);
-	imagedestroy($image);
 
 	return '<p>' . $GLOBALS["graphday1".$GLOBALS['lang']] . '</p>';
 }

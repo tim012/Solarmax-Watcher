@@ -200,7 +200,7 @@ $graphmonth2de = "erwarteter Tagesertrag";
 $graphmonth3de = "durchschnittlicher Tagesertrag";
 $graphyear1de = "Ertrag in kWh pro Monat";
 $graphyear2de = "erwarteter Monatsertrag";
-$switch_arrayde = array("Ertrag \n", "akkumulierter Ertrag \n", "Vorhersage \n", "Spannung \n", "Strom \n", "Leisung \n", "Gitter </p>\n</div>\n", "Zahlen \n", "Vorhersage \n", "Durchschnitt \n", "Gitter </p>\n</div>\n", "Zahlen \n", "Prozent \n", "Gitter </p>\n</div>\n");
+$switch_arrayde = array("Ertrag \n", "akkumulierter Ertrag \n", "Vorhersage \n", "Spannung \n", "Strom \n", "Leistung \n", "Gitter </p>\n</div>\n", "Zahlen \n", "Vorhersage \n", "Durchschnitt \n", "Gitter </p>\n</div>\n", "Zahlen \n", "Prozent \n", "Gitter </p>\n</div>\n");
 
 $graphday1en = "power, todays yield, DC-voltage, DC-current, DC-power";
 $graphday2en = "straight line: expected daily yield   curve: yield today";

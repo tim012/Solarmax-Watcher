@@ -13,8 +13,7 @@
 
 		// Select daily energy for each day of month
 		// If you are experiencing problems with the value 'kdy' especially the days very first 'kdy' is equal to the last one of the previous day comment in the next line and comment out the following one. Be aware: This is !!!untested!!! Don't slap me if something's going wrong!
-		// $result = @mysql_query("SELECT DAY($table.created) AS day, kdy FROM $table, (SELECT MAX(created) AS created FROM $table WHERE MONTH(created)=$date[mon] AND YEAR(created)=$date[year] GROUP BY DAYOFYEAR(created)) AS sublog WHERE $table.created=sublog.created AND MONTH($table.created)=$date[mon] AND YEAR($table.created)=$date[year]") or die(mysql_error());
-		$result = @mysql_query("SELECT DAY(created) AS day, MAX(kdy) AS kdy FROM $table WHERE MONTH(created)=$date[mon] AND YEAR(created)=$date[year] GROUP BY DAYOFYEAR(created)") or die(mysql_error());
+		 $result = @mysql_query("SELECT DAY($table.created) AS day, kdy FROM $table, (SELECT MAX(created) AS created FROM $table WHERE MONTH(created)=$date[mon] AND YEAR(created)=$date[year] GROUP BY DAYOFYEAR(created)) AS sublog WHERE $table.created=sublog.created AND MONTH($table.created)=$date[mon] AND YEAR($table.created)=$date[year]") or die(mysql_error());
 
 		if (mysql_num_rows($result) == 0) {
 			// No data...create dummy image
@@ -22,7 +21,6 @@
 			$white = imagecolorallocate($image, 255, 255, 255);
 			imagefill($image, 0, 0, $white);
 			imagepng($image, $image_name);
-			imagedestroy($image);
 			return $GLOBALS["error3".$GLOBALS['lang']] . '<br />';
 		}
 
@@ -71,50 +69,49 @@
 		$lasttotalkwh = 0;
 		while($row = mysql_fetch_assoc($result)) {
 			// Determine x position
-			$xpos = $row['day'] * $px_per_day - $px_per_day / 2;
+			$xpos = (int)($row['day'] * $px_per_day - $px_per_day / 2);
 			$lastxpos = $xpos;
 			// Transform kWh to pixel height
-			$kwh = $row['kdy'] / 10 / $step_w * $vert_px;
+			$kwh = (int)($row['kdy'] / 10 / $step_w * $vert_px);
 			$days++;
 			$sum = $sum + $row['kdy'] / 10;
 
 			// Draw acumulated yield
 			$totalkwh = $totalkwh + $kwh*0.1;
 			if ($lasttotalkwh == 0) {
-				imagesetpixel($image, $xpos, $height - $gap + 22 - $totalkwh, $black);
+				imagesetpixel($image, $xpos, (int)($height - $gap + 22 - $totalkwh), $black);
 			} else {
-				imageline($image, $lastxpos - $px_per_day/2, ($height - $gap + 22 - $lasttotalkwh), $xpos + $px_per_day/2, ($height - $gap + 22 - $totalkwh), $black);
+				imageline($image, (int)($lastxpos - $px_per_day/2), (int)($height - $gap + 22 - $lasttotalkwh), (int)($xpos + $px_per_day/2), (int)($height - $gap + 22 - $totalkwh), $black);
 			}
 			$lasttotalkwh = $totalkwh;
 
 			// Draw kWh bar
 			imagefilledrectangle($image, $xpos + 2, $height - $gap + 22, $xpos + $px_per_day - 2, $height - $gap - $kwh + 22, $green);
 			if (preg_match('/numbersmonth/', $show_text)) {
-				imagefttext($image, 12, 90, $xpos + 19, $height - $gap - $kwh + 17, $black, $fontfile, $row['kdy']/10);
+				imagefttext($image, 12, 90, $xpos + 19, $height - $gap - $kwh + 17, $black, $fontfile, $row['kdy']/10); // no int cast at $row[kdy]!
 			}
 		}
 
 		// Draw prediction line
 		if (preg_match('/predmonth/', $show_text)) {
 			$pred = $pred_day / $step_w * $vert_px;
-			imageline($image, 12, $height - $pred - $gap + 22, $width - 35, $height - $pred - $gap + 22, $blue);
-			imageline($image, $width - ($width * 3 / 4) -10, $height - 15, $width - ($width * 3 / 4) + 5, $height - 15, $blue);
-			imagefttext($image, 7, 0, $width - ($width * 3 / 4) + 20, $height - 12, $black, $fontfile, $GLOBALS["graphmonth2".$GLOBALS['lang']]);
+			imageline($image, 12, (int)($height - $pred - $gap + 22), $width - 35, (int)($height - $pred - $gap + 22), $blue);
+			imageline($image, $width - (int)($width * 3 / 4) -10, $height - 15, $width - (int)($width * 3 / 4) + 5, $height - 15, $blue);
+			imagefttext($image, 7, 0, $width - (int)($width * 3 / 4) + 20, $height - 12, $black, $fontfile, $GLOBALS["graphmonth2".$GLOBALS['lang']]);
 		}
 
 		// Draw average line
 		if (preg_match('/avg/', $show_text)) {
 			$avg =$sum / $days / $step_w * $vert_px;
-			imageline($image, 12, $height - $avg - $gap + 22, $width - 35, $height - $avg - $gap + 22, $yellow);
-			imageline($image, $width - ($width * 2 / 4) - 5, $height - 15, $width - ($width * 2 / 4) +10, $height - 15, $yellow);
-			imagefttext($image, 7, 0, $width - ($width * 2 / 4) +25, $height - 12, $black, $fontfile, $GLOBALS["graphmonth3".$GLOBALS['lang']]);
+			imageline($image, 12, (int)($height - $avg - $gap + 22), $width - 35, (int)($height - $avg - $gap + 22), $yellow);
+			imageline($image, $width - (int)($width * 2 / 4) - 5, $height - 15, $width - (int)($width * 2 / 4) +10, $height - 15, $yellow);
+			imagefttext($image, 7, 0, $width - (int)($width * 2 / 4) +25, $height - 12, $black, $fontfile, $GLOBALS["graphmonth3".$GLOBALS['lang']]);
 		}
 
         imagefilledrectangle($image, $width - 140, 0,  $width - 60, 20, $white);
         imagefttext($image, 10, 0, $width - 140, 10, $black, $fontfile, $sum . " kWh");
 
 		imagepng($image, $image_name);
-		imagedestroy($image);
 		return '<p>' . $GLOBALS["graphmonth1".$GLOBALS['lang']] . '</p>';
 	}
 ?>

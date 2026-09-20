@@ -23,7 +23,6 @@
 			$white = imagecolorallocate($image, 255, 255, 255);
 			imagefill($image, 0, 0, $white);
 			imagepng($image, $image_name);
-			imagedestroy($image);
 			return $GLOBALS["error3".$GLOBALS['lang']] . '<br />';
 		}
 
@@ -81,13 +80,13 @@
 			// Draw kWh bar and prediction line
 			$pred_month = ${'m_'.date('m', mktime(0, 0, 0, $row['month'], 1, 0))};
 			$pred = $pred_month / $step_w * $vert_px;
-			imagefilledrectangle($image, $xpos + 2, $height - $gap + 10, $xpos + $px_per_month - 2, $height - $gap - $kwh + 10, $green);
-			imageline($image, $xpos, $height - $pred - $gap + 10, $xpos + $px_per_month, $height - $pred - $gap + 10, $blue);
+			imagefilledrectangle($image, (int)($xpos + 2), (int)($height - $gap + 10), (int)($xpos + $px_per_month - 2), (int)($height - $gap - $kwh + 10), $green);
+			imageline($image, $xpos, (int)($height - $pred - $gap + 10), (int)($xpos + $px_per_month), (int)($height - $pred - $gap + 10), $blue);
 			if (preg_match('/numbersyear/', $show_text)) {
-				imagefttext($image, 12, 90, $xpos + 31, $height - $gap - $kwh + 4, $black, $fontfile, $row['kmt']);
-				imagefttext($image, 7, 0, $xpos + 45, $height - $gap - $pred + 8, $blue, $fontfile, $pred_month);
+				imagefttext($image, 12, 90, (int)($xpos + 31), (int)($height - $gap - $kwh + 4), $black, $fontfile, $row['kmt']);
+				imagefttext($image, 7, 0, (int)($xpos + 45), (int)($height - $gap - $pred + 8), $blue, $fontfile, $pred_month);
 				if (preg_match('/percent/', $show_text)) {
-					imagefttext($image, 6 , 90, $xpos + 42, $height - $gap - $kwh + 10, $black, $fontfile, "(".round($row['kmt'] / $pred_month,3) *100 ." %)");
+					imagefttext($image, 6 , 90, (int)($xpos + 42), (int)($height - $gap - $kwh + 10), $black, $fontfile, "(".round($row['kmt'] / $pred_month,3) *100 ." %)");
 				}
 			}
 		}
@@ -99,7 +98,6 @@
 		imageline($image, $width - ($width * 2 / 4) - 55, $height - 15, $width - ($width * 2 / 4) - 70, $height - 15, $blue);
 		imagefttext($image, 7, 0, $width - ($width * 2 / 4) - 40, $height - 12, $black, $fontfile, $GLOBALS["graphyear2".$GLOBALS['lang']]);
 		imagepng($image, $image_name);
-		imagedestroy($image);
 		return '<p>' . $GLOBALS["graphyear1".$GLOBALS['lang']] . '</p>';
 	}
 ?>
