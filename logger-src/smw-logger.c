@@ -4,8 +4,10 @@
     It is now licensed under GPLv2 or later http://www.gnu.org/licenses/gpl2.html
 
     You need the mysql client library files installed to be able to compile it.
+    For the optional MQTT output you additionally need libmosquitto
+    (Debian/Ubuntu: "apt install libmosquitto-dev").
 
-    Compile with: gcc -W -Wall -Wextra -Wshadow -Wlong-long -Wformat -Wpointer-arith -rdynamic -pedantic-errors -std=c99 -o smw-logger smw-logger.c -lmysqlclient
+    Compile with: gcc -W -Wall -Wextra -Wshadow -Wlong-long -Wformat -Wpointer-arith -rdynamic -pedantic-errors -std=c99 -o smw-logger smw-logger.c -lmysqlclient -lmosquitto
 
     Run with: ./smw-logger /path/to/config-file
 
@@ -21,6 +23,20 @@
     DBpass=solar5647
     Hostname=192.168.178.35
     Hostport=12345
+
+    Optional MQTT settings, MQTT stays off as long as MQTThost is missing:
+
+    MQTThost=192.168.X.Y
+    MQTTport=1883
+    MQTTuser=
+    MQTTpass=
+    MQTTtopic=solarmax
+    MQTTqos=0
+    MQTTretain=1
+
+    Every single sample (Logavginterval) is published as one topic per value,
+    e.g. solarmax/pac, solarmax/kdy, solarmax/ud01, ... The database still gets
+    the averaged values every Loginterval.
 
    You can set DEBUG to 1 to get detailed output in a separate logfile.
 
@@ -38,12 +54,14 @@
   - http://man.cx/setbuf%283%29
   - http://allfaq.org/forums/t/169895.aspx
   - http://dev.mysql.com/tech-resources/articles/mysql-capi-tutorial.html
+  - https://mosquitto.org/api/files/mosquitto-h.html
 */
 
 #define _GNU_SOURCE
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <strings.h>
 #include <sys/types.h>
@@ -51,6 +69,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <mysql/mysql.h>
+#include <mosquitto.h>
 #include <regex.h>
 #include <time.h>
 #include <unistd.h>
@@ -82,6 +101,16 @@ static  char    hostaddr[512];
 static  char    line[512];
 static  char*   message;
 
+/* MQTT settings */
+static  struct  mosquitto* mosq = NULL;
+static  char    mqtt_host[512] = "";        // empty => MQTT disabled
+static  int     mqtt_port      = 1883;
+static  char    mqtt_user[512] = "";
+static  char    mqtt_pass[512] = "";
+static  char    mqtt_topic[256] = "solarmax";
+static  int     mqtt_qos       = 0;
+static  int     mqtt_retain    = 1;
+
 static  int     kdy;    // Energy today [Wh]  (KDY)
 static  int     kmt;    // Energy this month [kWh] (KMT)
 static  int     kyr;    // Energy this year [kWh] (KYR)
@@ -96,6 +125,10 @@ static  int     id02;   // DC current [mA] string 2
 static  int     id03;   // DC current [mA] string 3
 static  int     sys;    // Operating state
 
+/* values of the sample that was just read, these go out via MQTT */
+static  int     cur_kdy, cur_kmt, cur_kyr, cur_kt0, cur_tkk, cur_pac;
+static  int     cur_ud01, cur_ud02, cur_ud03, cur_id01, cur_id02, cur_id03, cur_sys;
+
 static  char*   expression = "...=([0-9A-F]*);...=([0-9A-F]*);...=([0-9A-F]*);...=([0-9A-F]*);...=([0-9A-F]*);...=([0-9A-F]*);....=([0-9A-F]*);....=([0-9A-F]*);....=([0-9A-F]*);....=([0-9A-F]*);....=([0-9A-F]*);....=([0-9A-F]*);...=([0-9A-F]*)";
 static  char    buffer[512], buffer2[512];
 static  char    query[512];
@@ -103,8 +136,11 @@ static  regex_t rx;
 static  regmatch_t* matches;
 static  MYSQL*  connection = NULL;
 
+static void mqtt_stop(void);
+
 static void error_exit(const char* msg) {
     perror(msg);
+    mqtt_stop();
     if (error_file != NULL) fclose(error_file);
     if (debug_file != NULL) fclose(debug_file);
     exit(0);
@@ -141,6 +177,104 @@ static void set_nonblock(int sock) {
     fcntl(sock, F_SETFL, flags | O_NONBLOCK);
 }
 
+/* =========================== MQTT functions =========================== */
+
+/* Set up the mosquitto client. Does nothing if MQTThost is not configured. */
+static int mqtt_start(void) {
+    char msg[512];
+    int rc;
+
+    if (mqtt_host[0] == '\0') return 0;
+
+    mosquitto_lib_init();
+
+    mosq = mosquitto_new(NULL, true, NULL);
+    if (mosq == NULL) {
+        error_retry("ERROR can't create mosquitto client, continuing without MQTT");
+        return -1;
+    } // if
+
+    if (mqtt_user[0] != '\0') {
+        mosquitto_username_pw_set(mosq, mqtt_user, mqtt_pass[0] != '\0' ? mqtt_pass : NULL);
+    } // if
+
+    mosquitto_reconnect_delay_set(mosq, 2, 60, true);
+
+    // connect_async() + loop_start(): the network thread does the (re)connecting,
+    // so a broker that is down neither blocks nor kills the logger
+    rc = mosquitto_connect_async(mosq, mqtt_host, mqtt_port, 60);
+    if (rc != MOSQ_ERR_SUCCESS) {
+        snprintf(msg, sizeof(msg), "MQTT connect to %s:%d failed: %s", mqtt_host, mqtt_port, mosquitto_strerror(rc));
+        error_retry(msg);
+    } // if
+
+    rc = mosquitto_loop_start(mosq);
+    if (rc != MOSQ_ERR_SUCCESS) {
+        snprintf(msg, sizeof(msg), "ERROR can't start MQTT thread: %s", mosquitto_strerror(rc));
+        error_retry(msg);
+        mosquitto_destroy(mosq);
+        mosq = NULL;
+        mosquitto_lib_cleanup();
+        return -1;
+    } // if
+
+    if (DEBUG) {
+        snprintf(msg, sizeof(msg), "MQTT publishing to %s:%d, topic %s", mqtt_host, mqtt_port, mqtt_topic);
+        debug_entry(msg);
+    } // if (DEBUG)
+
+    return 0;
+} // mqtt_start
+
+static void mqtt_stop(void) {
+    if (mosq == NULL) return;
+
+    mosquitto_disconnect(mosq);
+    mosquitto_loop_stop(mosq, false);
+    mosquitto_destroy(mosq);
+    mosq = NULL;
+    mosquitto_lib_cleanup();
+} // mqtt_stop
+
+static void mqtt_publish_value(const char* subtopic, int value) {
+    char topic[600];
+    char payload[32];
+    char msg[700];
+    int len, rc;
+
+    if (mosq == NULL) return;
+
+    snprintf(topic, sizeof(topic), "%s/%s", mqtt_topic, subtopic);
+    len = snprintf(payload, sizeof(payload), "%d", value);
+
+    rc = mosquitto_publish(mosq, NULL, topic, len, payload, mqtt_qos, mqtt_retain != 0);
+    if (rc != MOSQ_ERR_SUCCESS && DEBUG) {
+        snprintf(msg, sizeof(msg), "ERROR publishing %s: %s", topic, mosquitto_strerror(rc));
+        debug_entry(msg);
+    } // if
+} // mqtt_publish_value
+
+/* Publish the values of the sample that has just been read from the inverter. */
+static void mqtt_publish_sample(void) {
+    if (mosq == NULL) return;
+
+    mqtt_publish_value("kdy",  cur_kdy);
+    mqtt_publish_value("kmt",  cur_kmt);
+    mqtt_publish_value("kyr",  cur_kyr);
+    mqtt_publish_value("kt0",  cur_kt0);
+    mqtt_publish_value("tkk",  cur_tkk);
+    mqtt_publish_value("pac",  cur_pac);
+    mqtt_publish_value("ud01", cur_ud01);
+    mqtt_publish_value("ud02", cur_ud02);
+    mqtt_publish_value("ud03", cur_ud03);
+    mqtt_publish_value("id01", cur_id01);
+    mqtt_publish_value("id02", cur_id02);
+    mqtt_publish_value("id03", cur_id03);
+    mqtt_publish_value("sys",  cur_sys);
+} // mqtt_publish_sample
+
+/* ====================================================================== */
+
 int main(int argc, char *argv[]) {
     int     avgCount;
 
@@ -167,6 +301,13 @@ int main(int argc, char *argv[]) {
             sscanf(line, "DBpass=%[^\n]", dbpass);
             sscanf(line, "Hostname=%[^\n]", hostaddr);
             sscanf(line, "Hostport=%d[^\n]", &portno);
+            sscanf(line, "MQTThost=%[^\n]", mqtt_host);
+            sscanf(line, "MQTTport=%d[^\n]", &mqtt_port);
+            sscanf(line, "MQTTuser=%[^\n]", mqtt_user);
+            sscanf(line, "MQTTpass=%[^\n]", mqtt_pass);
+            sscanf(line, "MQTTtopic=%[^\n]", mqtt_topic);
+            sscanf(line, "MQTTqos=%d[^\n]", &mqtt_qos);
+            sscanf(line, "MQTTretain=%d[^\n]", &mqtt_retain);
         } // while
     } // if
     fclose(config_file);
@@ -204,6 +345,9 @@ int main(int argc, char *argv[]) {
     // Try to reserve memory for matches
     matches = (regmatch_t *) malloc((rx.re_nsub + 1) * sizeof(regmatch_t));
     if (!matches) error_exit("Out of memory");
+
+    // Start the MQTT client (does nothing if MQTThost is not configured)
+    mqtt_start();
 
     // Connect to database
     connection = mysql_init(NULL);
@@ -334,20 +478,37 @@ int main(int argc, char *argv[]) {
                     break;
                 }
 
-                // Convert the extracted data fields to integer values
-                kdy   = strtol(buffer + matches[1].rm_so, NULL, 16);
-                kmt   = strtol(buffer + matches[2].rm_so, NULL, 16);
-                kyr   = strtol(buffer + matches[3].rm_so, NULL, 16);
-                kt0   = strtol(buffer + matches[4].rm_so, NULL, 16);
-                tkk  += strtol(buffer + matches[5].rm_so, NULL, 16);
-                pac  += strtol(buffer + matches[6].rm_so, NULL, 16) / 2;
-                ud01 += strtol(buffer + matches[7].rm_so, NULL, 16);
-                ud02 += strtol(buffer + matches[8].rm_so, NULL, 16);
-                ud03 += strtol(buffer + matches[9].rm_so, NULL, 16);
-                id01 += strtol(buffer + matches[10].rm_so, NULL, 16);
-                id02 += strtol(buffer + matches[11].rm_so, NULL, 16);
-                id03 += strtol(buffer + matches[12].rm_so, NULL, 16);
-                sys   = strtol(buffer + matches[13].rm_so, NULL, 16);
+                // Convert the extracted data fields of this sample to integer values
+                cur_kdy  = strtol(buffer + matches[1].rm_so, NULL, 16);
+                cur_kmt  = strtol(buffer + matches[2].rm_so, NULL, 16);
+                cur_kyr  = strtol(buffer + matches[3].rm_so, NULL, 16);
+                cur_kt0  = strtol(buffer + matches[4].rm_so, NULL, 16);
+                cur_tkk  = strtol(buffer + matches[5].rm_so, NULL, 16);
+                cur_pac  = strtol(buffer + matches[6].rm_so, NULL, 16) / 2;
+                cur_ud01 = strtol(buffer + matches[7].rm_so, NULL, 16);
+                cur_ud02 = strtol(buffer + matches[8].rm_so, NULL, 16);
+                cur_ud03 = strtol(buffer + matches[9].rm_so, NULL, 16);
+                cur_id01 = strtol(buffer + matches[10].rm_so, NULL, 16);
+                cur_id02 = strtol(buffer + matches[11].rm_so, NULL, 16);
+                cur_id03 = strtol(buffer + matches[12].rm_so, NULL, 16);
+                cur_sys  = strtol(buffer + matches[13].rm_so, NULL, 16);
+
+                kdy   = cur_kdy;
+                kmt   = cur_kmt;
+                kyr   = cur_kyr;
+                kt0   = cur_kt0;
+                tkk  += cur_tkk;
+                pac  += cur_pac;
+                ud01 += cur_ud01;
+                ud02 += cur_ud02;
+                ud03 += cur_ud03;
+                id01 += cur_id01;
+                id02 += cur_id02;
+                id03 += cur_id03;
+                sys   = cur_sys;
+
+                // Publish the current values via MQTT
+                mqtt_publish_sample();
 
                 //TODO check if the task need more time than logavg_interval
                 if (avgCount) sleep(logavg_interval - (time(NULL)-single_start_time));
@@ -402,6 +563,8 @@ int main(int argc, char *argv[]) {
 
         } // while
     } // while
+
+    mqtt_stop();
 
     return 0;
 } // main
