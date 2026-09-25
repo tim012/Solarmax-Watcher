@@ -79,7 +79,12 @@ oben gibt es ein Aufklapp-Menü „SolarMax" (`BASE["links"]`, Dashboard-Links n
 Aufbau aller drei:
 1. Kopf (`sm_kopf`, aktuelle Werte, unabhängig vom gewählten Zeitraum): Einspeiseleistung,
    Temperatur WR, DC-Spannung und DC-Strom je String, Betriebsstatus; Ertrag heute,
-   Monats-, Jahres-, Gesamtertrag (Zähler `kmt`/`kyr`/`kt0` direkt). Nachts „Aus"/0.
+   Monats-, Jahres-, Gesamtertrag (Zähler `kmt`/`kyr`/`kt0` direkt).
+   Live-Kacheln (Leistung, Temperatur, DC-Spannung/-Strom, Status) suchen ihren letzten
+   Wert nur in den letzten `OFFLINE` (10 min = fünf verpasste 2-min-Werte). Ist der letzte
+   Wert älter: Leistung „0 W", Temperatur/DC „–" (0 °C/0 V sähe wie ein Messwert aus),
+   Status „Offline". Ertrag heute bleibt bis Mitternacht stehen, Monat/Jahr/Gesamt sind
+   Zählerstände und bleiben ebenfalls.
    Einspeiseleistung fest in W (Einheit `W`, nicht `watt` – die skaliert auf kW).
 2. Grafik (Trend-Panel) – Tag: Leistung AC (Fläche), PDC/UDC/IDC je String, Ertrag
    akkumuliert und Vorhersage, x 05:00–22:00. Monat: Balken je Tag plus Linien Erwartet,

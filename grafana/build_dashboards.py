@@ -154,6 +154,9 @@ STATUS = {20001: "Service", 20002: "Zu wenig Einstrahlung", 20003: "Anfahren", 2
           20005: "Ventilator an", 20006: "Max. AC-Einspeiseleistung", 20007: "Temperaturüberschreitung",
           20008: "Netzbetrieb", 20009: "Max. DC-Eingangsleistung"}
 SM_BASE = BASE
+# Live-Werte im Kopf (Leistung, Temperatur, DC, Status) gelten als offline, wenn der letzte
+# Wert älter ist (Logger schreibt alle 2 min, 10 min = fünf verpasste Werte).
+OFFLINE = "10m"
 
 def sm_src(rng, fields):
     cond = " or ".join(f'r._field == "{f}"' for f in fields)
@@ -188,21 +191,22 @@ def sm_stat(d, title, q, unit, gp, decimals=0, desc="", no_value=None, mappings=
 def sm_kopf(d):
     """Aktuelle Werte wie im Kopf der alten Web-Oberfläche – unabhängig vom gewählten Zeitraum."""
     heute = "start: date.truncate(t: now(), unit: 1d)"
+    live = f"start: -{OFFLINE}"
     def last1(f, rng, conv):
         return sm_src(rng, [f]) + f"  |> last()\n  |> map(fn: (r) => ({{_time: r._time, _value: {conv}}}))"
     def strings(a, b, div):
-        return sm_src(heute, [a, b]) + f"""  |> last()
+        return sm_src(live, [a, b]) + f"""  |> last()
   |> group()
   |> pivot(rowKey: ["_measurement"], columnKey: ["_field"], valueColumn: "_value")
   |> map(fn: (r) => ({{s1: float(v: r.{a}) / {div}, s2: float(v: r.{b}) / {div}}}))
   |> rename(columns: {{s1: "String 1", s2: "String 2"}})"""
-    sm_stat(d, "Einspeiseleistung", last1("pac", heute, "float(v: r._value)"), "W", {"h": 3, "w": 5, "x": 0, "y": 0},
-            no_value="0 W", desc="Aktuelle AC-Leistung (letzter Wert von heute).")
-    sm_stat(d, "Temperatur WR", last1("tkk", heute, "float(v: r._value)"), "celsius", {"h": 3, "w": 4, "x": 5, "y": 0}, no_value="–")
+    sm_stat(d, "Einspeiseleistung", last1("pac", live, "float(v: r._value)"), "W", {"h": 3, "w": 5, "x": 0, "y": 0},
+            no_value="0 W", desc=f"Aktuelle AC-Leistung; 0 W, wenn der letzte Wert älter als {OFFLINE} ist.")
+    sm_stat(d, "Temperatur WR", last1("tkk", live, "float(v: r._value)"), "celsius", {"h": 3, "w": 4, "x": 5, "y": 0}, no_value="–")
     sm_stat(d, "DC-Spannung", strings("udc1", "udc2", "10.0"), "volt", {"h": 3, "w": 5, "x": 9, "y": 0}, no_value="–", multi=True)
     sm_stat(d, "DC-Strom", strings("idc1", "idc2", "100.0"), "amp", {"h": 3, "w": 5, "x": 14, "y": 0}, decimals=2, no_value="–", multi=True)
-    sm_stat(d, "Betriebsstatus", last1("sys", heute, "r._value"), "none", {"h": 3, "w": 5, "x": 19, "y": 0}, no_value="Aus",
-            desc="Statuscode des Wechselrichters; unbekannte Codes erscheinen als Zahl.",
+    sm_stat(d, "Betriebsstatus", last1("sys", live, "r._value"), "none", {"h": 3, "w": 5, "x": 19, "y": 0}, no_value="Offline",
+            desc=f"Statuscode des Wechselrichters; unbekannte Codes erscheinen als Zahl. Offline, wenn der letzte Wert älter als {OFFLINE} ist.",
             mappings=[{"type": "value", "options": {str(k): {"text": v, "index": i} for i, (k, v) in enumerate(STATUS.items())}}])
     sm_stat(d, "Ertrag heute", last1("kdy", heute, "float(v: r._value) / 10.0"), "kWh", {"h": 3, "w": 6, "x": 0, "y": 3},
             decimals=1, no_value="0 kWh")
@@ -274,7 +278,7 @@ st.add(type="trend", title="Leistung im Tagesverlauf",
          ovr("IDC String 2", [("unit", "amp"), farbe("green"), DASH, ("custom.axisPlacement", "right"), ("min", 0), ("max", 10)]),
        ]})
 solarmax_tag = dict(SM_BASE, links=nav_links("solarmax-tag", "tag", "◀", "▶") + heute_link("solarmax-tag", "tag") + SM_BASE["links"],
-                    title="SolarMax – Tag", uid="solarmax-tag", version=6, refresh="5m",
+                    title="SolarMax – Tag", uid="solarmax-tag", version=7, refresh="5m",
                     time={"from": "now/d", "to": "now/d"}, timepicker={"hidden": True},
                     templating={"list": [DSVAR, lvar("jahr", "Jahr", JAHRE_Q), lvar("monat", "Monat", MONATE_Q, MONATE_RE),
                                          lvar("tag", "Tag", TAGE_Q)] + nav_vars("tag") + heute_vars("tag", "solarmax")},
@@ -312,7 +316,7 @@ sm_m.add(type="trend", title="Ertrag pro Tag",
            ovr("Kumuliert", [("unit", "kwatth"), ("max", 1000), farbe("text"), ("custom.lineWidth", 1), ("custom.axisPlacement", "right")]),
          ]})
 solarmax_monat = dict(SM_BASE, links=nav_links("solarmax-monat", "monat", "◀", "▶") + heute_link("solarmax-monat", "monat") + SM_BASE["links"],
-                      title="SolarMax – Monat", uid="solarmax-monat", version=6, refresh="15m",
+                      title="SolarMax – Monat", uid="solarmax-monat", version=7, refresh="15m",
                       time={"from": "now/M", "to": "now/M"}, timepicker={"hidden": True},
                       templating={"list": [DSVAR, lvar("jahr", "Jahr", JAHRE_Q), lvar("monat", "Monat", MONATE_Q, MONATE_RE)]
                                           + nav_vars("monat") + heute_vars("monat", "solarmax")},
@@ -345,7 +349,7 @@ sm_j.add(type="trend", title="Ertrag pro Monat",
                           ("custom.axisPlacement", "hidden")]),
          ]})
 solarmax_jahr = dict(SM_BASE, links=nav_links("solarmax-jahr", "jahr", "◀", "▶") + heute_link("solarmax-jahr", "jahr") + SM_BASE["links"],
-                     title="SolarMax – Jahr", uid="solarmax-jahr", version=6,
+                     title="SolarMax – Jahr", uid="solarmax-jahr", version=7,
                      time={"from": "now/y", "to": "now/y"}, timepicker={"hidden": True},
                      templating={"list": [DSVAR, lvar("jahr", "Jahr", JAHRE_Q)] + nav_vars("jahr") + heute_vars("jahr", "solarmax")},
                      panels=sm_j.panels)

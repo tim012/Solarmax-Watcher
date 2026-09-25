@@ -64,7 +64,7 @@
   ],
   "title": "SolarMax – Monat",
   "uid": "solarmax-monat",
-  "version": 6,
+  "version": 7,
   "refresh": "15m",
   "time": {
     "from": "now/M",
@@ -246,7 +246,7 @@
     {
       "type": "stat",
       "title": "Einspeiseleistung",
-      "description": "Aktuelle AC-Leistung (letzter Wert von heute).",
+      "description": "Aktuelle AC-Leistung; 0 W, wenn der letzte Wert älter als 10m ist.",
       "gridPos": {
         "h": 3,
         "w": 5,
@@ -260,7 +260,7 @@
             "type": "influxdb",
             "uid": "${ds}"
           },
-          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: date.truncate(t: now(), unit: 1d))\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"pac\"))\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: float(v: r._value)}))"
+          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"pac\"))\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: float(v: r._value)}))"
         }
       ],
       "options": {
@@ -311,7 +311,7 @@
             "type": "influxdb",
             "uid": "${ds}"
           },
-          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: date.truncate(t: now(), unit: 1d))\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"tkk\"))\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: float(v: r._value)}))"
+          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"tkk\"))\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: float(v: r._value)}))"
         }
       ],
       "options": {
@@ -362,7 +362,7 @@
             "type": "influxdb",
             "uid": "${ds}"
           },
-          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: date.truncate(t: now(), unit: 1d))\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"udc1\" or r._field == \"udc2\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"_measurement\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({s1: float(v: r.udc1) / 10.0, s2: float(v: r.udc2) / 10.0}))\n  |> rename(columns: {s1: \"String 1\", s2: \"String 2\"})"
+          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"udc1\" or r._field == \"udc2\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"_measurement\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({s1: float(v: r.udc1) / 10.0, s2: float(v: r.udc2) / 10.0}))\n  |> rename(columns: {s1: \"String 1\", s2: \"String 2\"})"
         }
       ],
       "options": {
@@ -413,7 +413,7 @@
             "type": "influxdb",
             "uid": "${ds}"
           },
-          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: date.truncate(t: now(), unit: 1d))\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"idc1\" or r._field == \"idc2\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"_measurement\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({s1: float(v: r.idc1) / 100.0, s2: float(v: r.idc2) / 100.0}))\n  |> rename(columns: {s1: \"String 1\", s2: \"String 2\"})"
+          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"idc1\" or r._field == \"idc2\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"_measurement\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({s1: float(v: r.idc1) / 100.0, s2: float(v: r.idc2) / 100.0}))\n  |> rename(columns: {s1: \"String 1\", s2: \"String 2\"})"
         }
       ],
       "options": {
@@ -450,7 +450,7 @@
     {
       "type": "stat",
       "title": "Betriebsstatus",
-      "description": "Statuscode des Wechselrichters; unbekannte Codes erscheinen als Zahl.",
+      "description": "Statuscode des Wechselrichters; unbekannte Codes erscheinen als Zahl. Offline, wenn der letzte Wert älter als 10m ist.",
       "gridPos": {
         "h": 3,
         "w": 5,
@@ -464,7 +464,7 @@
             "type": "influxdb",
             "uid": "${ds}"
           },
-          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: date.truncate(t: now(), unit: 1d))\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"sys\"))\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: r._value}))"
+          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: -10m)\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"sys\"))\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: r._value}))"
         }
       ],
       "options": {
@@ -488,7 +488,7 @@
             "mode": "fixed",
             "fixedColor": "text"
           },
-          "noValue": "Aus",
+          "noValue": "Offline",
           "mappings": [
             {
               "type": "value",
