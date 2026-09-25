@@ -18,7 +18,7 @@ Features
 * **MySQL/MariaDB** output, the base for the PHP web pages
 * every output is optional, any combination works
 * Grafana dashboards for day, month and year, generated from a script
-* Docker setup: logger, InfluxDB and Grafana behind Traefik
+* Docker setup: logger, InfluxDB and Grafana
 
 
 How it works
@@ -55,8 +55,12 @@ Repository layout
 Quick start with Docker
 -----------------------
 
-Requirements: Docker with Compose, and Traefik on an external network
-`backend` for Grafana (or remove the Traefik labels and publish port 3000).
+Requirements: Docker with Compose.
+
+Grafana is published on port 3000 (plain HTTP), the optional web pages on
+port 8080. For HTTPS or a domain put a reverse proxy of your choice in front
+of them; for Grafana then also set `GF_SERVER_ROOT_URL` and
+`GF_SECURITY_COOKIE_SECURE`, which are prepared as comments in the compose file.
 
 1. **Compose file and secrets**
 
@@ -64,9 +68,8 @@ Requirements: Docker with Compose, and Traefik on an external network
        cp .env.example .env
 
    Replace all `<<DEFINE>>` in `docker-compose.yml` with host paths for the
-   volumes, and set `grafana.example.com` to your domain. In `.env` set the
-   passwords and a long random InfluxDB token. Both files are listed in
-   `.gitignore`.
+   volumes. In `.env` set the passwords and a long random InfluxDB token. Both
+   files are listed in `.gitignore`.
 
 2. **Logger configuration**
 
@@ -88,9 +91,9 @@ Requirements: Docker with Compose, and Traefik on an external network
 
 4. **Grafana data source**
 
-   The dashboards are provisioned automatically, the data source is not. Log
-   in to Grafana (user `admin`, password `GF_SECURITY_ADMIN_PASSWORD`) and add
-   it once under *Connections → Data sources → Add data source → InfluxDB*:
+   The dashboards are provisioned automatically, the data source is not. Open
+   Grafana on `http://<host>:3000`, log in (user `admin`, password
+   `GF_SECURITY_ADMIN_PASSWORD`) and add it once under *Connections → Data sources → Add data source → InfluxDB*:
 
    | Setting        | Value                                           |
    |----------------|-------------------------------------------------|

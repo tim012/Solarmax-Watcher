@@ -1,4 +1,6 @@
-# Default setup: logger -> InfluxDB -> Grafana (behind Traefik).
+# Default setup: logger -> InfluxDB -> Grafana.
+# Grafana (and the optional web pages) publish plain HTTP ports; put a reverse
+# proxy of your choice in front of them if you need HTTPS or a domain.
 # MariaDB is only needed for MySQL logging and the PHP pages in web/, see below.
 services:
     watcher:
@@ -33,7 +35,7 @@ services:
           - DOCKER_INFLUXDB_INIT_RETENTION=0
         restart: unless-stopped
 
-    # Grafana behind Traefik. Admin password comes from .env.
+    # Grafana on http://<host>:3000. Admin password comes from .env.
     grafana:
         image: grafana/grafana:latest
         user: 1000:1000
@@ -49,25 +51,16 @@ services:
           - GF_SECURITY_ADMIN_USER=admin
           - GF_USERS_ALLOW_SIGN_UP=false
           - GF_ANALYTICS_REPORTING_ENABLED=false
-          - GF_SERVER_ROOT_URL=https://grafana.example.com
-          - GF_SECURITY_COOKIE_SECURE=true
+          # behind an HTTPS reverse proxy: set the public URL and secure cookies
+          # - GF_SERVER_ROOT_URL=https://grafana.example.com
+          # - GF_SECURITY_COOKIE_SECURE=true
           # stay logged in practically forever
           - GF_AUTH_LOGIN_MAXIMUM_INACTIVE_LIFETIME_DURATION=60d
           - GF_AUTH_LOGIN_MAXIMUM_LIFETIME_DURATION=1825d
-        labels:
-          # HTTPS via Traefik, adjust entrypoint and certresolver to your Traefik setup
-          - traefik.http.routers.grafana.rule=Host(`grafana.example.com`)
-          - traefik.http.routers.grafana.entrypoints=websecure
-          - traefik.http.routers.grafana.tls=true
-          - traefik.http.routers.grafana.tls.certresolver=letsencrypt
-          - traefik.http.services.grafana.loadbalancer.server.port=3000
-          - traefik.docker.network=backend
-          - traefik.enable=true
+        ports:
+          - 3000:3000
         depends_on:
           - influxdb
-        networks:
-          - default
-          - backend
         restart: unless-stopped
 
     # Optional: MariaDB for MySQL logging (DBhost=db in smw-logger.conf) and the
@@ -86,7 +79,7 @@ services:
     #       MYSQL_ROOT_PASSWORD: '<<DEFINE>>'
     #       TZ: 'Europe/Zurich'
 
-    # Optional: PHP pages from web/ behind Traefik, reads the MySQL data (needs db).
+    # Optional: PHP pages from web/ on http://<host>:8080, reads the MySQL data (needs db).
     # Set the DB host in web/solarertrag.php and web/analyzer.php to 'db'.
     # The folder img/ has to be writable by www-data, the graphs are rendered into it.
     # web:
@@ -97,22 +90,7 @@ services:
     #     restart: always
     #     volumes:
     #       - ./web:/var/www/html
-    #     labels:
-    #       # HTTPS via Traefik, adjust entrypoint and certresolver to your Traefik setup
-    #       - traefik.http.routers.solarweb.rule=Host(`solar.example.com`)
-    #       - traefik.http.routers.solarweb.entrypoints=websecure
-    #       - traefik.http.routers.solarweb.tls=true
-    #       - traefik.http.routers.solarweb.tls.certresolver=letsencrypt
-    #       - traefik.http.services.solarweb.loadbalancer.server.port=80
-    #       - traefik.docker.network=backend
-    #       - traefik.enable=true
+    #     ports:
+    #       - 8080:80
     #     depends_on:
     #       - db
-    #     networks:
-    #       - default
-    #       - backend
-
-networks:
-    # external network shared with Traefik
-    backend:
-        external: true
