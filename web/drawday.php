@@ -15,6 +15,7 @@ function draw_day($start, $end, $pred_day, $image_name, $table, $fontfile, $show
 	// Select data from given day
 	// If you are experiencing problems with the value 'kdy' especially the days very first 'kdy' is equal to the last one of the previous day comment in the next line and comment out the following one. Be aware: This is !!!untested!!! Don't slap me if something's going wrong!
 	$result1 = @mysql_query("SELECT HOUR(created) AS hour, MINUTE(created) AS minute, pac, kdy FROM $table WHERE created BETWEEN '$start' AND '$end' LIMIT 1, 999999999") or die(mysql_error());
+	//$result1 = @mysql_query("SELECT HOUR(created) AS hour, MINUTE(created) AS minute, pac FROM $table WHERE created BETWEEN '$start' AND '$end'") or die(mysql_error());
 	$result2 = @mysql_query("SELECT HOUR(created) AS hour, MINUTE(created) AS minute, kdy, udc1, udc2, udc3, idc1, idc2, idc3 FROM $table WHERE created BETWEEN '$start' AND '$end'") or die(mysql_error());
 
 	if (mysql_num_rows($result1) == 0)
@@ -38,7 +39,9 @@ function draw_day($start, $end, $pred_day, $image_name, $table, $fontfile, $show
 	$maxkdy = 100;
 	$maxidc = 10;
 	$maxudc = 800;
+	// original: $maxudc = 650;
 	$minudc = 0;
+	// original: $minudc = 400;
 
 	$lastidc1 = 0;
 	$lastidc2 = 0;

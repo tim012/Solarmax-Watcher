@@ -5,9 +5,10 @@
 
     You need the mysql client library files installed to be able to compile it.
     For the optional MQTT output you additionally need libmosquitto
-    (Debian/Ubuntu: "apt install libmosquitto-dev").
+    (Debian/Ubuntu: "apt install libmosquitto-dev"), for the optional InfluxDB
+    output libcurl ("apt install libcurl4-openssl-dev").
 
-    Compile with: gcc -W -Wall -Wextra -Wshadow -Wlong-long -Wformat -Wpointer-arith -rdynamic -pedantic-errors -std=c99 -o smw-logger smw-logger.c -lmysqlclient -lmosquitto
+    Compile with: gcc -W -Wall -Wextra -Wshadow -Wlong-long -Wformat -Wpointer-arith -rdynamic -pedantic-errors -std=c99 -o smw-logger smw-logger.c -lmysqlclient -lmosquitto -lcurl
 
     Run with: ./smw-logger /path/to/config-file
 
@@ -20,9 +21,12 @@
     DBname=solarmax
     DBtable=log10mt2
     DBuser=solaruser
-    DBpass=solar5647
+    DBpass=userpassword
     Hostname=192.168.178.35
     Hostport=12345
+
+    The DB settings are optional, DB logging stays off as long as DBhost is
+    missing. At least one of DBhost, MQTThost or INFLUXurl has to be set.
 
     Optional MQTT settings, MQTT stays off as long as MQTThost is missing:
 
@@ -33,10 +37,32 @@
     MQTTtopic=solarmax
     MQTTqos=0
     MQTTretain=1
+    Nightpower=200
+
+    Optional InfluxDB (v2) settings, off as long as INFLUXurl is missing:
+
+    INFLUXurl=http://influxdb:8086
+    INFLUXorg=my-org
+    INFLUXbucket=solarmax
+    INFLUXtoken=my-write-token
+    INFLUXmeasurement=solarmax
+
+    InfluxDB receives the same averaged values with the same field names as
+    the database, at the same interval (Loginterval).
 
     Every single sample (Logavginterval) is published as one topic per value,
     e.g. solarmax/pac, solarmax/kdy, solarmax/ud01, ... The database still gets
     the averaged values every Loginterval.
+
+    While the inverter is not reachable, solarmax/pac=0 and the last known
+    solarmax/kt0 are published every Logavginterval, so consumers like evcc
+    don't treat the values as outdated. Nothing of this goes to the database.
+
+    This only happens if the last sample read before the failure was below
+    Nightpower watts, which means the inverter shut down in an orderly way
+    (dusk). After a failure at higher power something really went wrong, the
+    inverter may well still be producing, so no values are published at all
+    and consumers correctly report the meter as outdated.
 
    You can set DEBUG to 1 to get detailed output in a separate logfile.
 
@@ -70,6 +96,7 @@
 #include <netdb.h>
 #include <mysql/mysql.h>
 #include <mosquitto.h>
+#include <curl/curl.h>
 #include <regex.h>
 #include <time.h>
 #include <unistd.h>
@@ -110,6 +137,17 @@ static  char    mqtt_pass[512] = "";
 static  char    mqtt_topic[256] = "solarmax";
 static  int     mqtt_qos       = 0;
 static  int     mqtt_retain    = 1;
+static  int     night_power    = 200;       // see Nightpower in the config file
+
+/* InfluxDB settings */
+static  CURL*   curl = NULL;
+static  struct  curl_slist* influx_headers = NULL;
+static  char    influx_url[512] = "";       // empty => InfluxDB disabled
+static  char    influx_org[256] = "";
+static  char    influx_bucket[256] = "";
+static  char    influx_token[512] = "";
+static  char    influx_measurement[256] = "solarmax";
+static  char    influx_write_url[1280];
 
 static  int     kdy;    // Energy today [Wh]  (KDY)
 static  int     kmt;    // Energy this month [kWh] (KMT)
@@ -128,6 +166,7 @@ static  int     sys;    // Operating state
 /* values of the sample that was just read, these go out via MQTT */
 static  int     cur_kdy, cur_kmt, cur_kyr, cur_kt0, cur_tkk, cur_pac;
 static  int     cur_ud01, cur_ud02, cur_ud03, cur_id01, cur_id02, cur_id03, cur_sys;
+static  int     have_counters = 0;  // 1 as soon as one sample was read successfully
 
 static  char*   expression = "...=([0-9A-F]*);...=([0-9A-F]*);...=([0-9A-F]*);...=([0-9A-F]*);...=([0-9A-F]*);...=([0-9A-F]*);....=([0-9A-F]*);....=([0-9A-F]*);....=([0-9A-F]*);....=([0-9A-F]*);....=([0-9A-F]*);....=([0-9A-F]*);...=([0-9A-F]*)";
 static  char    buffer[512], buffer2[512];
@@ -137,10 +176,12 @@ static  regmatch_t* matches;
 static  MYSQL*  connection = NULL;
 
 static void mqtt_stop(void);
+static void influx_stop(void);
 
 static void error_exit(const char* msg) {
     perror(msg);
     mqtt_stop();
+    influx_stop();
     if (error_file != NULL) fclose(error_file);
     if (debug_file != NULL) fclose(debug_file);
     exit(0);
@@ -273,6 +314,152 @@ static void mqtt_publish_sample(void) {
     mqtt_publish_value("sys",  cur_sys);
 } // mqtt_publish_sample
 
+/* 0 W may only be published if the inverter shut down in an orderly way, which
+   is the case when the last sample before the failure was below night_power.
+   After a failure at higher power the inverter might still be producing and
+   0 W would be a lie, so nothing is published at all. */
+static int offline_is_night(void) {
+    return (have_counters && cur_pac < night_power);
+} // offline_is_night
+
+/* Inverter not reachable: publish 0 W, so consumers don't see the values as
+   outdated. The total counter is repeated unchanged (never 0, it must not go
+   backwards). kdy/kmt/kyr are left out, they would be wrong after midnight. */
+static void mqtt_publish_offline(void) {
+    if (mosq == NULL) return;
+    if (!offline_is_night()) return;
+
+    mqtt_publish_value("pac", 0);
+    mqtt_publish_value("kt0", cur_kt0);
+} // mqtt_publish_offline
+
+/* Replacement for sleep() while the inverter is not reachable:
+   keeps publishing the offline values every logavg_interval seconds. */
+static void wait_offline(int seconds) {
+    int chunk;
+
+    if (DEBUG && mosq != NULL) {
+        char msg[512];
+        if (offline_is_night()) {
+            snprintf(msg, sizeof(msg), "Inverter not reachable, last sample was %d W, publishing 0 W via MQTT", cur_pac);
+        } // if
+        else if (have_counters) {
+            snprintf(msg, sizeof(msg), "Inverter not reachable, last sample was %d W, publishing nothing", cur_pac);
+        } // else if
+        else {
+            snprintf(msg, sizeof(msg), "Inverter not reachable, no sample read yet, publishing nothing");
+        } // else
+        debug_entry(msg);
+    } // if (DEBUG)
+
+    while (seconds > 0) {
+        mqtt_publish_offline();
+        chunk = (seconds < logavg_interval) ? seconds : logavg_interval;
+        sleep(chunk);
+        seconds -= chunk;
+    } // while
+} // wait_offline
+
+/* ========================== InfluxDB functions ========================= */
+
+/* Throw the response body away instead of printing it to stdout. */
+static size_t influx_discard(void* ptr, size_t size, size_t nmemb, void* userdata) {
+    (void) ptr;
+    (void) userdata;
+    return size * nmemb;
+} // influx_discard
+
+/* Set up the curl handle. Does nothing if INFLUXurl is not configured. */
+static int influx_start(void) {
+    char header[600];
+    char* esc_org;
+    char* esc_bucket;
+
+    if (influx_url[0] == '\0') return 0;
+
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+
+    curl = curl_easy_init();
+    if (curl == NULL) {
+        error_retry("ERROR can't create curl handle, continuing without InfluxDB");
+        curl_global_cleanup();
+        return -1;
+    } // if
+
+    esc_org    = curl_easy_escape(curl, influx_org, 0);
+    esc_bucket = curl_easy_escape(curl, influx_bucket, 0);
+    snprintf(influx_write_url, sizeof(influx_write_url), "%s/api/v2/write?org=%s&bucket=%s&precision=s",
+             influx_url, esc_org != NULL ? esc_org : influx_org,
+             esc_bucket != NULL ? esc_bucket : influx_bucket);
+    curl_free(esc_org);
+    curl_free(esc_bucket);
+
+    snprintf(header, sizeof(header), "Authorization: Token %s", influx_token);
+    influx_headers = curl_slist_append(influx_headers, header);
+    influx_headers = curl_slist_append(influx_headers, "Content-Type: text/plain; charset=utf-8");
+
+    curl_easy_setopt(curl, CURLOPT_URL, influx_write_url);
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, influx_headers);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, influx_discard);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L);
+
+    if (DEBUG) {
+        char msg[1400];
+        snprintf(msg, sizeof(msg), "InfluxDB writing to %s", influx_write_url);
+        debug_entry(msg);
+    } // if (DEBUG)
+
+    return 0;
+} // influx_start
+
+static void influx_stop(void) {
+    if (curl == NULL) return;
+
+    curl_easy_cleanup(curl);
+    curl = NULL;
+    curl_slist_free_all(influx_headers);
+    influx_headers = NULL;
+    curl_global_cleanup();
+} // influx_stop
+
+/* Write the averaged values to InfluxDB, same values and names as the db row.
+   A failure is logged and otherwise ignored, the logger keeps running. */
+static void influx_write(void) {
+    char body[768];
+    char msg[900];
+    long http_code = 0;
+    CURLcode rc;
+
+    if (curl == NULL) return;
+
+    snprintf(body, sizeof(body),
+             "%s kdy=%di,kmt=%di,kyr=%di,kt0=%di,tkk=%di,pac=%di,"
+             "udc1=%di,udc2=%di,udc3=%di,idc1=%di,idc2=%di,idc3=%di,sys=%di %ld",
+             influx_measurement, kdy, kmt, kyr, kt0, tkk, pac,
+             ud01, ud02, ud03, id01, id02, id03, sys, (long) time(NULL));
+
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body);
+
+    if (DEBUG) {
+        snprintf(msg, sizeof(msg), "Writing to InfluxDB: %s", body);
+        debug_entry(msg);
+    } // if (DEBUG)
+
+    rc = curl_easy_perform(curl);
+    if (rc != CURLE_OK) {
+        snprintf(msg, sizeof(msg), "ERROR writing to InfluxDB: %s", curl_easy_strerror(rc));
+        error_retry(msg);
+        return;
+    } // if
+
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+    if (http_code != 204) {
+        snprintf(msg, sizeof(msg), "ERROR writing to InfluxDB: HTTP %ld", http_code);
+        error_retry(msg);
+    } // if
+} // influx_write
+
 /* ====================================================================== */
 
 int main(int argc, char *argv[]) {
@@ -308,6 +495,12 @@ int main(int argc, char *argv[]) {
             sscanf(line, "MQTTtopic=%[^\n]", mqtt_topic);
             sscanf(line, "MQTTqos=%d[^\n]", &mqtt_qos);
             sscanf(line, "MQTTretain=%d[^\n]", &mqtt_retain);
+            sscanf(line, "Nightpower=%d[^\n]", &night_power);
+            sscanf(line, "INFLUXurl=%[^\n]", influx_url);
+            sscanf(line, "INFLUXorg=%[^\n]", influx_org);
+            sscanf(line, "INFLUXbucket=%[^\n]", influx_bucket);
+            sscanf(line, "INFLUXtoken=%[^\n]", influx_token);
+            sscanf(line, "INFLUXmeasurement=%[^\n]", influx_measurement);
         } // while
     } // if
     fclose(config_file);
@@ -346,24 +539,37 @@ int main(int argc, char *argv[]) {
     matches = (regmatch_t *) malloc((rx.re_nsub + 1) * sizeof(regmatch_t));
     if (!matches) error_exit("Out of memory");
 
+    // Without DB, MQTT and InfluxDB there is nothing to log to
+    if (dbhost[0] == '\0' && mqtt_host[0] == '\0' && influx_url[0] == '\0') {
+        error_exit("ERROR neither DBhost nor MQTThost nor INFLUXurl configured");
+    } // if
+
     // Start the MQTT client (does nothing if MQTThost is not configured)
     mqtt_start();
 
-    // Connect to database
-    connection = mysql_init(NULL);
-    if (!mysql_real_connect(connection, dbhost, dbuser, dbpass, dbname, 0, NULL, 0)) {
-        error_exit(mysql_error(connection));
-    } // if
+    // Set up InfluxDB (does nothing if INFLUXurl is not configured)
+    influx_start();
 
-    if (DEBUG) {
-        sprintf(buffer, "Connected to database %s on host %s", dbname, dbhost);
-        debug_entry(buffer);
-    } // if (DEBUG)
+    // Connect to database (only if DBhost is configured)
+    if (dbhost[0] != '\0') {
+        connection = mysql_init(NULL);
+        if (!mysql_real_connect(connection, dbhost, dbuser, dbpass, dbname, 0, NULL, 0)) {
+            error_exit(mysql_error(connection));
+        } // if
+
+        if (DEBUG) {
+            sprintf(buffer, "Connected to database %s on host %s", dbname, dbhost);
+            debug_entry(buffer);
+        } // if (DEBUG)
+    } // if
+    else if (DEBUG) {
+        debug_entry("DB logging disabled (no DBhost in config file)");
+    } // else
 
     while (1) {
 
         // Check if connection to db-server must be re-established
-        if (mysql_ping(connection)) {
+        if (connection != NULL && mysql_ping(connection)) {
 
             //TODO Maybe a reconnect (if needed) here ?
             // Connect to database
@@ -381,7 +587,7 @@ int main(int argc, char *argv[]) {
         if (server == NULL) {
             sprintf(buffer, "Can't resolve \"%s\"", hostaddr);
             error_retry(buffer);
-            sleep(60);
+            wait_offline(60);
             continue;
         }
 
@@ -427,7 +633,7 @@ int main(int argc, char *argv[]) {
                     sprintf(buffer, "%s: Can't connect to solarmax (%s) on port %d", strerror(errno), hostaddr, portno);
                     error_retry(buffer);
                     close(sockfd);
-                    sleep(600);
+                    wait_offline(600);
                     failure_flag = 1;
                     break;
                 } // if
@@ -506,6 +712,7 @@ int main(int argc, char *argv[]) {
                 id02 += cur_id02;
                 id03 += cur_id03;
                 sys   = cur_sys;
+                have_counters = 1;
 
                 // Publish the current values via MQTT
                 mqtt_publish_sample();
@@ -515,7 +722,7 @@ int main(int argc, char *argv[]) {
 
             } // while (avgCount--)
 
-            // Calculate the average values and insert into db
+            // Calculate the average values and write them to db and/or InfluxDB
             if (failure_flag == 0) {
                     tkk  = tkk  / logavg_pertick;
                     pac  = pac  / logavg_pertick;
@@ -526,17 +733,22 @@ int main(int argc, char *argv[]) {
                     id02 = id02 / logavg_pertick;
                     id03 = id03 / logavg_pertick;
 
-                    // Construct the query according to active solarmax
-                    sprintf(query, "INSERT INTO %s (kdy, kmt, kyr, kt0, tkk, pac, udc1, udc2, udc3, idc1, idc2, idc3, sys) VALUES (%d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d);",
-                                           dbtable, kdy, kmt, kyr, kt0, tkk, pac, ud01, ud02, ud03, id01, id02, id03, sys);
-                    if (DEBUG) {
-                        sprintf(buffer, "Executing query: %s", query);
-                        debug_entry(buffer);
-                    } // if (DEBUG)
+                    if (connection != NULL) {
+                        // Construct the query according to active solarmax
+                        sprintf(query, "INSERT INTO %s (kdy, kmt, kyr, kt0, tkk, pac, udc1, udc2, udc3, idc1, idc2, idc3, sys) VALUES (%d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d);",
+                                               dbtable, kdy, kmt, kyr, kt0, tkk, pac, ud01, ud02, ud03, id01, id02, id03, sys);
+                        if (DEBUG) {
+                            sprintf(buffer, "Executing query: %s", query);
+                            debug_entry(buffer);
+                        } // if (DEBUG)
 
-                    // Execute the query to write the data into db
-                    mysql_query(connection, query);
-                    if (mysql_errno(connection)) error_exit(mysql_error(connection));
+                        // Execute the query to write the data into db
+                        mysql_query(connection, query);
+                        if (mysql_errno(connection)) error_exit(mysql_error(connection));
+                    } // if (connection != NULL)
+
+                    // Write the same values to InfluxDB
+                    influx_write();
 
             } // if (failure_flag == 0)
 
@@ -565,6 +777,7 @@ int main(int argc, char *argv[]) {
     } // while
 
     mqtt_stop();
+    influx_stop();
 
     return 0;
 } // main

@@ -10,14 +10,12 @@
     db=solarmax
     # MYSQL neuer Solarwatch Nutzer
     newuser=solaruser
-    # MYSQL Passwort für den neuen Solarwatch Nutzer
-    userpw="userpassword"
+    # MYSQL Passwort fuer den neuen Solarwatch Nutzer
+    userpw=<password>
     # Anzahl der Wechselrichter = Anzahl der Tabellen
     anz_wr=1
     # Name der Tabelle
-    tabelle=log
-    # root Password
-    rootpw="rootpassword"
+    tabelle=log10mt2
 
 #    ##############################################
 #    ######### MYSQL Root PW ######################
@@ -39,30 +37,25 @@
     mysql -uroot -p"$rootpw" -e "$command1"
 
     ## Tabellen fuer jeden WR anlegen
-    i=1
-    while [ $i -le $anz_wr ]
-    do
-    command2="use $db;CREATE TABLE IF NOT EXISTS $tabelle$i (
+    command2="use $db;CREATE TABLE IF NOT EXISTS $tabelle (
     created timestamp NOT NULL default CURRENT_TIMESTAMP,
-    kdy int(11) unsigned default NULL,
-    kmt int(11) unsigned default NULL,
-    kyr int(11) unsigned default NULL,
-    kt0 int(11) unsigned default NULL,
-    tnf int(11) unsigned default NULL,
-    tkk int(11) unsigned default NULL,
-    pac int(11) unsigned default NULL,
-    prl int(11) unsigned default NULL,
-    il1 int(11) unsigned default NULL,
-    idc int(11) unsigned default NULL,
-    ul1 int(11) unsigned default NULL,
-    udc int(11) unsigned default NULL,
-    sys int(11) unsigned default NULL,
+    kdy  int(11) unsigned default NULL,
+    kmt  int(11) unsigned default NULL,
+    kyr  int(11) unsigned default NULL,
+    kt0  int(11) unsigned default NULL,
+    tkk  int(11) unsigned default NULL,
+    pac  int(11) unsigned default NULL,
+    udc1 int(11) unsigned default NULL,
+    udc2 int(11) unsigned default NULL,
+    udc3 int(11) unsigned default NULL,
+    idc1 int(11) unsigned default NULL,
+    idc2 int(11) unsigned default NULL,
+    idc3 int(11) unsigned default NULL,
+    sys  int(11) unsigned default NULL,
     PRIMARY KEY  (created)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8;"
 
     mysql -u$newuser -p"$userpw" -e "$command2"
-    i=`expr $i + 1`
-    done
 
     ## Tabellen und Status anzeigen
     command3="show databases;

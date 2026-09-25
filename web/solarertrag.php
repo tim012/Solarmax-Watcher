@@ -51,7 +51,7 @@ elseif (preg_match('/[^0-9]/', $_GET['wr'])) {
 else {
 	$wr = $_GET['wr'];
 }
-$table="log1";
+$table="log10mt2";
 
 // which language does the users browser prefer
 $lang=substr($_SERVER['HTTP_ACCEPT_LANGUAGE'], 0, 2);
@@ -104,7 +104,7 @@ if (!preg_match("/[0-9]?[0-9]\.[0-9]?[0-9]\.[0-9][0-9][0-9][0-9]/", "$day.$month
 	include 'solarertrag_day_predictions.php';
 
 	// Connect to mysql database
-	@mysql_connect('localhost', 'solaruser', 'solaruser') or die(mysql_error());
+	@mysql_connect('localhost', 'solaruser', 'userpassword') or die(mysql_error());
 	@mysql_select_db('solarmax') or die(mysql_error());
 
 	// Check which view to use and define start and end limits

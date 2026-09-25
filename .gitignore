@@ -1,0 +1,13 @@
+# local configuration with real hosts and credentials
+docker-compose.yml
+docker-compose.override.yml
+.env
+*.conf
+!*.conf.example
+
+# runtime data
+*.log
+logger/smw-logger
+
+# python
+__pycache__/

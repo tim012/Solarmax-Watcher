@@ -1,0 +1,118 @@
+# Default setup: logger -> InfluxDB -> Grafana (behind Traefik).
+# MariaDB is only needed for MySQL logging and the PHP pages in web/, see below.
+services:
+    watcher:
+        image: solar_watcher:latest
+        build:
+          context: ./logger
+        restart: always
+        volumes:
+          - <<DEFINE>>:/opt/solarmax/etc
+          - <<DEFINE>>:/opt/solarmax/log
+        depends_on:
+          - influxdb
+
+    # InfluxDB v2, target of the logger's INFLUX* settings
+    # (INFLUXurl=http://influxdb:8086). Admin password and token come from .env.
+    influxdb:
+        image: influxdb:2-alpine
+        user: 1000:1000
+        ports:
+          - 127.0.0.1:8086:8086
+        volumes:
+          - <<DEFINE>>:/var/lib/influxdb2
+          - <<DEFINE>>:/etc/influxdb2
+        env_file: .env
+        environment:
+          - TZ=Europe/Zurich
+          - INFLUXD_REPORTING_DISABLED=true
+          - DOCKER_INFLUXDB_INIT_MODE=setup
+          - DOCKER_INFLUXDB_INIT_USERNAME=admin
+          - DOCKER_INFLUXDB_INIT_ORG=my-org
+          - DOCKER_INFLUXDB_INIT_BUCKET=solarmax
+          - DOCKER_INFLUXDB_INIT_RETENTION=0
+        restart: unless-stopped
+
+    # Grafana behind Traefik. Admin password comes from .env.
+    grafana:
+        image: grafana/grafana:latest
+        user: 1000:1000
+        volumes:
+          - <<DEFINE>>:/var/lib/grafana
+          - <<DEFINE>>:/etc/grafana/provisioning
+          # dashboards from the folder grafana/dashboards/ (see grafana/provisioning.yaml)
+          - ./grafana/provisioning.yaml:/etc/grafana/provisioning/dashboards/solarmax.yaml:ro
+          - ./grafana/dashboards:/etc/grafana/dashboards/solarmax:ro
+        env_file: .env
+        environment:
+          - TZ=Europe/Zurich
+          - GF_SECURITY_ADMIN_USER=admin
+          - GF_USERS_ALLOW_SIGN_UP=false
+          - GF_ANALYTICS_REPORTING_ENABLED=false
+          - GF_SERVER_ROOT_URL=https://grafana.example.com
+          - GF_SECURITY_COOKIE_SECURE=true
+          # stay logged in practically forever
+          - GF_AUTH_LOGIN_MAXIMUM_INACTIVE_LIFETIME_DURATION=60d
+          - GF_AUTH_LOGIN_MAXIMUM_LIFETIME_DURATION=1825d
+        labels:
+          # HTTPS via Traefik, adjust entrypoint and certresolver to your Traefik setup
+          - traefik.http.routers.grafana.rule=Host(`grafana.example.com`)
+          - traefik.http.routers.grafana.entrypoints=websecure
+          - traefik.http.routers.grafana.tls=true
+          - traefik.http.routers.grafana.tls.certresolver=letsencrypt
+          - traefik.http.services.grafana.loadbalancer.server.port=3000
+          - traefik.docker.network=backend
+          - traefik.enable=true
+        depends_on:
+          - influxdb
+        networks:
+          - default
+          - backend
+        restart: unless-stopped
+
+    # Optional: MariaDB for MySQL logging (DBhost=db in smw-logger.conf) and the
+    # PHP pages in web/. Create the table with db/create_db.sh.
+    # db:
+    #     image: mariadb:12
+    #     restart: always
+    #     ports:
+    #       - 127.0.0.1:3306:3306
+    #     volumes:
+    #       - <<DEFINE>>:/var/lib/mysql
+    #     environment:
+    #       MYSQL_DATABASE: '<<DEFINE>>'
+    #       MYSQL_USER: '<<DEFINE>>'
+    #       MYSQL_PASSWORD: '<<DEFINE>>'
+    #       MYSQL_ROOT_PASSWORD: '<<DEFINE>>'
+    #       TZ: 'Europe/Zurich'
+
+    # Optional: PHP pages from web/ behind Traefik, reads the MySQL data (needs db).
+    # Set the DB host in web/solarertrag.php and web/analyzer.php to 'db'.
+    # The folder img/ has to be writable by www-data, the graphs are rendered into it.
+    # web:
+    #     image: solar_web:latest
+    #     build:
+    #       context: ./web
+    #       network: host
+    #     restart: always
+    #     volumes:
+    #       - ./web:/var/www/html
+    #     labels:
+    #       # HTTPS via Traefik, adjust entrypoint and certresolver to your Traefik setup
+    #       - traefik.http.routers.solarweb.rule=Host(`solar.example.com`)
+    #       - traefik.http.routers.solarweb.entrypoints=websecure
+    #       - traefik.http.routers.solarweb.tls=true
+    #       - traefik.http.routers.solarweb.tls.certresolver=letsencrypt
+    #       - traefik.http.services.solarweb.loadbalancer.server.port=80
+    #       - traefik.docker.network=backend
+    #       - traefik.enable=true
+    #     depends_on:
+    #       - db
+    #     networks:
+    #       - default
+    #       - backend
+
+networks:
+    # external network shared with Traefik
+    backend:
+        external: true

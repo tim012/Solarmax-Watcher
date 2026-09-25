@@ -17,7 +17,7 @@
 
 	// How many inverters do we have?
 	$wrnum=1;
-	$table="log";
+	$table="log10mt2";
 
 	// Check GET vars
 	$q = $_GET['q'];
@@ -27,7 +27,7 @@
 	// Daten aller Tage
 	if ($q == "allDayData") {
 		// Connect to mysql database
-		@mysql_connect('localhost', 'solaruser', 'solaruser') or die(mysql_error());
+		@mysql_connect('localhost', 'solaruser', 'userpassword') or die(mysql_error());
 		@mysql_select_db('solarmax') or die(mysql_error());
 
 		while($wr < $wrnum+1) {
@@ -76,7 +76,7 @@
 		$end = date('Y-m-d H:i:s', mktime(23, 59, 59, $end['month'], $end['day'], $end['year']));
 
 		// Connect to mysql database
-		@mysql_connect('localhost', 'solaruser', 'solaruser') or die(mysql_error());
+		@mysql_connect('localhost', 'solaruser', 'userpassword') or die(mysql_error());
 		@mysql_select_db('solarmax') or die(mysql_error());
 
 		while($wr < $wrnum+1) {

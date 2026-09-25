@@ -1,0 +1,1067 @@
+{
+  "__requires": [
+    {
+      "type": "datasource",
+      "id": "influxdb",
+      "name": "InfluxDB",
+      "version": "1.0.0"
+    }
+  ],
+  "timezone": "Europe/Zurich",
+  "schemaVersion": 39,
+  "editable": true,
+  "tags": [
+    "solarmax"
+  ],
+  "links": [
+    {
+      "type": "link",
+      "title": "◀",
+      "url": "/d/solarmax-monat?var-jahr=${nav_z_jahr}&var-monat=${nav_z_monat}",
+      "tooltip": "Ein Schritt zurück",
+      "icon": "",
+      "tags": [],
+      "asDropdown": false,
+      "targetBlank": false,
+      "includeVars": false,
+      "keepTime": false
+    },
+    {
+      "type": "link",
+      "title": "▶",
+      "url": "/d/solarmax-monat?var-jahr=${nav_v_jahr}&var-monat=${nav_v_monat}",
+      "tooltip": "Ein Schritt vor",
+      "icon": "",
+      "tags": [],
+      "asDropdown": false,
+      "targetBlank": false,
+      "includeVars": false,
+      "keepTime": false
+    },
+    {
+      "type": "link",
+      "title": "Heute",
+      "url": "/d/solarmax-monat?var-jahr=${heute_jahr}&var-monat=${heute_monat}",
+      "tooltip": "Zum jüngsten Wert im Archiv springen",
+      "icon": "",
+      "tags": [],
+      "asDropdown": false,
+      "targetBlank": false,
+      "includeVars": false,
+      "keepTime": false
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "solarmax"
+      ],
+      "asDropdown": true,
+      "title": "SolarMax",
+      "includeVars": false,
+      "keepTime": false,
+      "icon": "external link"
+    }
+  ],
+  "title": "SolarMax – Monat",
+  "uid": "solarmax-monat",
+  "version": 6,
+  "refresh": "15m",
+  "time": {
+    "from": "now/M",
+    "to": "now/M"
+  },
+  "timepicker": {
+    "hidden": true
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "ds",
+        "label": "Datenquelle",
+        "type": "datasource",
+        "query": "influxdb",
+        "regex": "",
+        "current": {},
+        "options": [],
+        "hide": 2,
+        "refresh": 1,
+        "multi": false,
+        "includeAll": false
+      },
+      {
+        "name": "jahr",
+        "label": "Jahr",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "${ds}"
+        },
+        "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nj = date.year(t: now())\narray.from(rows: [{n: 1}, {n: 2}, {n: 3}, {n: 4}, {n: 5}, {n: 6}, {n: 7}, {n: 8}, {n: 9}, {n: 10}, {n: 11}, {n: 12}, {n: 13}, {n: 14}, {n: 15}, {n: 16}, {n: 17}, {n: 18}, {n: 19}, {n: 20}, {n: 21}, {n: 22}, {n: 23}, {n: 24}, {n: 25}, {n: 26}, {n: 27}, {n: 28}, {n: 29}, {n: 30}])\n  |> map(fn: (r) => ({j: j - r.n + 1}))\n  |> filter(fn: (r) => r.j >= 2014)\n  |> map(fn: (r) => ({_value: string(v: r.j)}))",
+        "definition": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nj = date.year(t: now())\narray.from(rows: [{n: 1}, {n: 2}, {n: 3}, {n: 4}, {n: 5}, {n: 6}, {n: 7}, {n: 8}, {n: 9}, {n: 10}, {n: 11}, {n: 12}, {n: 13}, {n: 14}, {n: 15}, {n: 16}, {n: 17}, {n: 18}, {n: 19}, {n: 20}, {n: 21}, {n: 22}, {n: 23}, {n: 24}, {n: 25}, {n: 26}, {n: 27}, {n: 28}, {n: 29}, {n: 30}])\n  |> map(fn: (r) => ({j: j - r.n + 1}))\n  |> filter(fn: (r) => r.j >= 2014)\n  |> map(fn: (r) => ({_value: string(v: r.j)}))",
+        "refresh": 1,
+        "sort": 0,
+        "regex": "",
+        "current": {},
+        "options": [],
+        "hide": 0,
+        "multi": false,
+        "includeAll": false
+      },
+      {
+        "name": "monat",
+        "label": "Monat",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "${ds}"
+        },
+        "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nmonate = [\"Jan\", \"Feb\", \"Mär\", \"Apr\", \"Mai\", \"Jun\", \"Jul\", \"Aug\", \"Sep\", \"Okt\", \"Nov\", \"Dez\"]\njj = int(v: \"${jahr}\")\nletzter = if jj == date.year(t: now()) then date.month(t: now()) else 12\narray.from(rows: [{n: 1}, {n: 2}, {n: 3}, {n: 4}, {n: 5}, {n: 6}, {n: 7}, {n: 8}, {n: 9}, {n: 10}, {n: 11}, {n: 12}])\n  |> filter(fn: (r) => r.n <= letzter)\n  |> sort(columns: [\"n\"], desc: true)\n  |> map(fn: (r) => ({_value: (if r.n < 10 then \"0\" else \"\") + string(v: r.n) + \"|\" + monate[r.n - 1]}))",
+        "definition": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nmonate = [\"Jan\", \"Feb\", \"Mär\", \"Apr\", \"Mai\", \"Jun\", \"Jul\", \"Aug\", \"Sep\", \"Okt\", \"Nov\", \"Dez\"]\njj = int(v: \"${jahr}\")\nletzter = if jj == date.year(t: now()) then date.month(t: now()) else 12\narray.from(rows: [{n: 1}, {n: 2}, {n: 3}, {n: 4}, {n: 5}, {n: 6}, {n: 7}, {n: 8}, {n: 9}, {n: 10}, {n: 11}, {n: 12}])\n  |> filter(fn: (r) => r.n <= letzter)\n  |> sort(columns: [\"n\"], desc: true)\n  |> map(fn: (r) => ({_value: (if r.n < 10 then \"0\" else \"\") + string(v: r.n) + \"|\" + monate[r.n - 1]}))",
+        "refresh": 1,
+        "sort": 0,
+        "regex": "/(?<value>[^|]+)\\|(?<text>.+)/",
+        "current": {},
+        "options": [],
+        "hide": 0,
+        "multi": false,
+        "includeAll": false
+      },
+      {
+        "name": "nav_z_jahr",
+        "label": "nav_z_jahr",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "${ds}"
+        },
+        "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nz = date.add(d: 12h, to: date.sub(d: 1mo, from: date.truncate(t: time(v: \"${jahr}-${monat}-15T00:00:00Z\"), unit: 1mo)))\narray.from(rows: [{_value: string(v: date.year(t: z))}])",
+        "definition": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nz = date.add(d: 12h, to: date.sub(d: 1mo, from: date.truncate(t: time(v: \"${jahr}-${monat}-15T00:00:00Z\"), unit: 1mo)))\narray.from(rows: [{_value: string(v: date.year(t: z))}])",
+        "refresh": 1,
+        "sort": 0,
+        "regex": "",
+        "current": {},
+        "options": [],
+        "hide": 2,
+        "multi": false,
+        "includeAll": false
+      },
+      {
+        "name": "nav_z_monat",
+        "label": "nav_z_monat",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "${ds}"
+        },
+        "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nz = date.add(d: 12h, to: date.sub(d: 1mo, from: date.truncate(t: time(v: \"${jahr}-${monat}-15T00:00:00Z\"), unit: 1mo)))\narray.from(rows: [{_value: (if date.month(t: z) < 10 then \"0\" else \"\") + string(v: date.month(t: z))}])",
+        "definition": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nz = date.add(d: 12h, to: date.sub(d: 1mo, from: date.truncate(t: time(v: \"${jahr}-${monat}-15T00:00:00Z\"), unit: 1mo)))\narray.from(rows: [{_value: (if date.month(t: z) < 10 then \"0\" else \"\") + string(v: date.month(t: z))}])",
+        "refresh": 1,
+        "sort": 0,
+        "regex": "",
+        "current": {},
+        "options": [],
+        "hide": 2,
+        "multi": false,
+        "includeAll": false
+      },
+      {
+        "name": "nav_v_jahr",
+        "label": "nav_v_jahr",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "${ds}"
+        },
+        "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nz = date.add(d: 12h, to: date.add(d: 1mo, to: date.truncate(t: time(v: \"${jahr}-${monat}-15T00:00:00Z\"), unit: 1mo)))\narray.from(rows: [{_value: string(v: date.year(t: z))}])",
+        "definition": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nz = date.add(d: 12h, to: date.add(d: 1mo, to: date.truncate(t: time(v: \"${jahr}-${monat}-15T00:00:00Z\"), unit: 1mo)))\narray.from(rows: [{_value: string(v: date.year(t: z))}])",
+        "refresh": 1,
+        "sort": 0,
+        "regex": "",
+        "current": {},
+        "options": [],
+        "hide": 2,
+        "multi": false,
+        "includeAll": false
+      },
+      {
+        "name": "nav_v_monat",
+        "label": "nav_v_monat",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "${ds}"
+        },
+        "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nz = date.add(d: 12h, to: date.add(d: 1mo, to: date.truncate(t: time(v: \"${jahr}-${monat}-15T00:00:00Z\"), unit: 1mo)))\narray.from(rows: [{_value: (if date.month(t: z) < 10 then \"0\" else \"\") + string(v: date.month(t: z))}])",
+        "definition": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nz = date.add(d: 12h, to: date.add(d: 1mo, to: date.truncate(t: time(v: \"${jahr}-${monat}-15T00:00:00Z\"), unit: 1mo)))\narray.from(rows: [{_value: (if date.month(t: z) < 10 then \"0\" else \"\") + string(v: date.month(t: z))}])",
+        "refresh": 1,
+        "sort": 0,
+        "regex": "",
+        "current": {},
+        "options": [],
+        "hide": 2,
+        "multi": false,
+        "includeAll": false
+      },
+      {
+        "name": "heute_jahr",
+        "label": "heute_jahr",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "${ds}"
+        },
+        "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: -90d)\n  |> group()\n  |> max(column: \"_time\")\n  |> keep(columns: [\"_time\"])\n  |> map(fn: (r) => ({_value: string(v: date.year(t: r._time))}))",
+        "definition": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: -90d)\n  |> group()\n  |> max(column: \"_time\")\n  |> keep(columns: [\"_time\"])\n  |> map(fn: (r) => ({_value: string(v: date.year(t: r._time))}))",
+        "refresh": 1,
+        "sort": 0,
+        "regex": "",
+        "current": {},
+        "options": [],
+        "hide": 2,
+        "multi": false,
+        "includeAll": false
+      },
+      {
+        "name": "heute_monat",
+        "label": "heute_monat",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "${ds}"
+        },
+        "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: -90d)\n  |> group()\n  |> max(column: \"_time\")\n  |> keep(columns: [\"_time\"])\n  |> map(fn: (r) => ({_value: (if date.month(t: r._time) < 10 then \"0\" else \"\") + string(v: date.month(t: r._time))}))",
+        "definition": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: -90d)\n  |> group()\n  |> max(column: \"_time\")\n  |> keep(columns: [\"_time\"])\n  |> map(fn: (r) => ({_value: (if date.month(t: r._time) < 10 then \"0\" else \"\") + string(v: date.month(t: r._time))}))",
+        "refresh": 1,
+        "sort": 0,
+        "regex": "",
+        "current": {},
+        "options": [],
+        "hide": 2,
+        "multi": false,
+        "includeAll": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Einspeiseleistung",
+      "description": "Aktuelle AC-Leistung (letzter Wert von heute).",
+      "gridPos": {
+        "h": 3,
+        "w": 5,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${ds}"
+          },
+          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: date.truncate(t: now(), unit: 1d))\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"pac\"))\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: float(v: r._value)}))"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "W",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "0 W"
+        },
+        "overrides": []
+      },
+      "id": 1,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${ds}"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Temperatur WR",
+      "description": "",
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 5,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${ds}"
+          },
+          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: date.truncate(t: now(), unit: 1d))\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"tkk\"))\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: float(v: r._value)}))"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "id": 2,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${ds}"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "DC-Spannung",
+      "description": "",
+      "gridPos": {
+        "h": 3,
+        "w": 5,
+        "x": 9,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${ds}"
+          },
+          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: date.truncate(t: now(), unit: 1d))\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"udc1\" or r._field == \"udc2\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"_measurement\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({s1: float(v: r.udc1) / 10.0, s2: float(v: r.udc2) / 10.0}))\n  |> rename(columns: {s1: \"String 1\", s2: \"String 2\"})"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "volt",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "id": 3,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${ds}"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "DC-Strom",
+      "description": "",
+      "gridPos": {
+        "h": 3,
+        "w": 5,
+        "x": 14,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${ds}"
+          },
+          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: date.truncate(t: now(), unit: 1d))\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"idc1\" or r._field == \"idc2\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"_measurement\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({s1: float(v: r.idc1) / 100.0, s2: float(v: r.idc2) / 100.0}))\n  |> rename(columns: {s1: \"String 1\", s2: \"String 2\"})"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "amp",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "id": 4,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${ds}"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Betriebsstatus",
+      "description": "Statuscode des Wechselrichters; unbekannte Codes erscheinen als Zahl.",
+      "gridPos": {
+        "h": 3,
+        "w": 5,
+        "x": 19,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${ds}"
+          },
+          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: date.truncate(t: now(), unit: 1d))\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"sys\"))\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: r._value}))"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "Aus",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "20001": {
+                  "text": "Service",
+                  "index": 0
+                },
+                "20002": {
+                  "text": "Zu wenig Einstrahlung",
+                  "index": 1
+                },
+                "20003": {
+                  "text": "Anfahren",
+                  "index": 2
+                },
+                "20004": {
+                  "text": "Betrieb auf MPP",
+                  "index": 3
+                },
+                "20005": {
+                  "text": "Ventilator an",
+                  "index": 4
+                },
+                "20006": {
+                  "text": "Max. AC-Einspeiseleistung",
+                  "index": 5
+                },
+                "20007": {
+                  "text": "Temperaturüberschreitung",
+                  "index": 6
+                },
+                "20008": {
+                  "text": "Netzbetrieb",
+                  "index": 7
+                },
+                "20009": {
+                  "text": "Max. DC-Eingangsleistung",
+                  "index": 8
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "id": 5,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${ds}"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Ertrag heute",
+      "description": "",
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 0,
+        "y": 3
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${ds}"
+          },
+          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: date.truncate(t: now(), unit: 1d))\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"kdy\"))\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: float(v: r._value) / 10.0}))"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kWh",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "0 kWh"
+        },
+        "overrides": []
+      },
+      "id": 6,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${ds}"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Monatsertrag",
+      "description": "Zähler des Wechselrichters (kmt).",
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 6,
+        "y": 3
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${ds}"
+          },
+          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: date.truncate(t: now(), unit: 1mo))\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"kmt\"))\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: float(v: r._value)}))"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kWh",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "0 kWh"
+        },
+        "overrides": []
+      },
+      "id": 7,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${ds}"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Jahresertrag",
+      "description": "Zähler des Wechselrichters (kyr).",
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 12,
+        "y": 3
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${ds}"
+          },
+          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: date.truncate(t: now(), unit: 1y))\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"kyr\"))\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: float(v: r._value)}))"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kWh",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "0 kWh"
+        },
+        "overrides": []
+      },
+      "id": 8,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${ds}"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Gesamtertrag",
+      "description": "Zähler des Wechselrichters (kt0).",
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 18,
+        "y": 3
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${ds}"
+          },
+          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"kt0\"))\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: float(v: r._value)}))"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kWh",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "id": 9,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${ds}"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Ertrag ${monat:text} ${jahr}",
+      "description": "Aus dem Monatszähler des Wechselrichters (kmt). Enthält auch Zeiten, in denen der Logger nicht lief – kann deshalb höher sein als die Summe der Tagesbalken.",
+      "gridPos": {
+        "h": 3,
+        "w": 8,
+        "x": 0,
+        "y": 21
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${ds}"
+          },
+          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nfrom(bucket: \"solarmax\")\n  |> range(start: date.truncate(t: time(v: \"${jahr}-${monat}-15T00:00:00Z\"), unit: 1mo), stop: date.add(d: 1mo, to: date.truncate(t: time(v: \"${jahr}-${monat}-15T00:00:00Z\"), unit: 1mo)))\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"kmt\"))\n  |> aggregateWindow(every: 1mo, fn: max, createEmpty: false, timeSrc: \"_start\")\n  |> group()\n  |> map(fn: (r) => ({_time: r._time, _start: r._start, _stop: r._stop, _value: float(v: r._value)}))\n  |> sum()"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kWh",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "0 kWh"
+        },
+        "overrides": []
+      },
+      "id": 10,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${ds}"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Erwartet",
+      "description": "Feste Erwartungswerte (PVGIS) aus der alten Web-Oberfläche.",
+      "gridPos": {
+        "h": 3,
+        "w": 8,
+        "x": 8,
+        "y": 21
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${ds}"
+          },
+          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\narray.from(rows: [{_value: [299.0, 455.0, 696.0, 771.0, 793.0, 846.0, 874.0, 832.0, 723.0, 543.0, 298.0, 227.0][int(v: \"${monat}\") - 1]}])"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kWh",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "id": 11,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${ds}"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Anteil am erwarteten Ertrag",
+      "description": "",
+      "gridPos": {
+        "h": 3,
+        "w": 8,
+        "x": 16,
+        "y": 21
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${ds}"
+          },
+          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nerw = [299.0, 455.0, 696.0, 771.0, 793.0, 846.0, 874.0, 832.0, 723.0, 543.0, 298.0, 227.0][int(v: \"${monat}\") - 1]\nfrom(bucket: \"solarmax\")\n  |> range(start: date.truncate(t: time(v: \"${jahr}-${monat}-15T00:00:00Z\"), unit: 1mo), stop: date.add(d: 1mo, to: date.truncate(t: time(v: \"${jahr}-${monat}-15T00:00:00Z\"), unit: 1mo)))\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"kmt\"))\n  |> aggregateWindow(every: 1mo, fn: max, createEmpty: false, timeSrc: \"_start\")\n  |> group()\n  |> map(fn: (r) => ({_time: r._time, _start: r._start, _stop: r._stop, _value: float(v: r._value)}))\n  |> sum()\n  |> map(fn: (r) => ({_value: r._value / erw * 100.0}))"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "0 %"
+        },
+        "overrides": []
+      },
+      "id": 12,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${ds}"
+      }
+    },
+    {
+      "type": "trend",
+      "title": "Ertrag pro Tag",
+      "description": "Erwartet = erwarteter Tagesertrag, Durchschnitt = mittlerer Tagesertrag des Monats, Kumuliert = Monatsertrag bis zum Tag (rechte Achse).",
+      "gridPos": {
+        "h": 15,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${ds}"
+          },
+          "query": "import \"array\"\nimport \"date\"\nimport \"timezone\"\noption location = timezone.location(name: \"Europe/Zurich\")\nerw = [10.0, 15.2, 23.2, 25.7, 26.4, 28.2, 29.1, 27.7, 24.1, 18.1, 10.0, 7.6][int(v: \"${monat}\") - 1]\nt = from(bucket: \"solarmax\")\n  |> range(start: date.truncate(t: time(v: \"${jahr}-${monat}-15T00:00:00Z\"), unit: 1mo), stop: date.add(d: 1mo, to: date.truncate(t: time(v: \"${jahr}-${monat}-15T00:00:00Z\"), unit: 1mo)))\n  |> filter(fn: (r) => r._measurement == \"solarmax\" and (r._field == \"kdy\"))\n  |> aggregateWindow(every: 1d, fn: max, createEmpty: false, timeSrc: \"_start\")\n  |> group()\n  |> map(fn: (r) => ({_time: r._time, _start: r._start, _stop: r._stop, _value: float(v: r._value) / 10.0}))\navg = t\n  |> mean()\n  |> map(fn: (r) => ({k: 1, Durchschnitt: r._value}))\ntage = t\n  |> map(fn: (r) => ({k: 1, Tag: float(v: date.monthDay(t: r._time)), Tagesertrag: r._value,\n       Kumuliert: r._value, Erwartet: erw}))\n  |> cumulativeSum(columns: [\"Kumuliert\"])\njoin(tables: {t: tage, a: avg}, on: [\"k\"])\n  |> drop(columns: [\"k\"])\n  |> sort(columns: [\"Tag\"])"
+        }
+      ],
+      "options": {
+        "xField": "Tag",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kWh",
+          "decimals": 1,
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 0,
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Tag"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "min",
+                "value": 0.5
+              },
+              {
+                "id": "max",
+                "value": 31.5
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Tagesertrag"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "bars"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 80
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Erwartet"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Durchschnitt"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Kumuliert"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "kwatth"
+              },
+              {
+                "id": "max",
+                "value": 1000
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
+      },
+      "id": 13,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${ds}"
+      }
+    }
+  ]
+}

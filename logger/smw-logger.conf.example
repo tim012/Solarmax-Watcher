@@ -1,0 +1,116 @@
+# Settings for the Solarmax Watcher
+# defaults are shown in parentheses; settings marked as required have no
+# default and must not be commented out
+#
+# At least one of DBhost, MQTThost and INFLUXurl has to be set, otherwise the
+# logger has nowhere to write to and refuses to start. The default setup is
+# logger -> InfluxDB -> Grafana, MySQL and MQTT are off.
+
+## Global settings of the logger
+
+# Debug? (0)
+Debug=0
+
+# location of error file (required)
+Errorfile=/opt/solarmax/log/solarmax-error.log
+
+# location of logging file
+Debugfile=/opt/solarmax/log/solarmax-debug.log
+
+# Interval in seconds to write the averaged values (required)
+Loginterval=120
+
+# Interval in seconds between the queries of the inverter (required).
+# Each Loginterval averages Loginterval/Logavginterval (here 4) samples.
+Logavginterval=30
+
+## MySQL settings
+
+# The whole MySQL part is optional. As long as DBhost is empty, missing or
+# commented out, no database connection is opened and nothing is written
+# to the database, the logger then only writes to MQTT and/or InfluxDB.
+# Hostname which is running the MySQL server (empty), e.g. db
+DBhost=
+
+# Name of the MySQL DB for the Solarmax logger (solarmax)
+DBname=solarmax
+
+# Tablename
+DBtable=log10mt2
+
+# DB user to write the values solarmax-DB (solaruser)
+DBuser=solaruser
+
+# Password for the DB user (userpassword)
+DBpass=userpassword
+
+
+## Inverter settings
+
+# IP-address or hostname of the inverter (required)
+Hostname=192.168.178.35
+
+# IP-Port of the inverter (required), usually 12345
+Hostport=12345
+
+
+## MQTT settings
+
+# Every value read from the inverter (see Logavginterval) is published as
+# one topic per value, e.g. solarmax/pac, solarmax/kdy, solarmax/ud01.
+# The database still receives the averaged values every Loginterval.
+#
+# While the inverter is not reachable (switched off at night, network
+# problem), pac is published as 0 and the last known kt0 is repeated, both
+# every Logavginterval. Consumers like evcc therefore see a valid 0 W
+# instead of an outdated value. Nothing of this is written to the database.
+
+# IP-address or hostname of the MQTT broker (empty), e.g. 192.168.X.Y. As
+# long as this is empty, MQTT stays off and nothing is published.
+MQTThost=
+
+# IP-Port of the MQTT broker (1883)
+MQTTport=1883
+
+# User for the broker (empty). Leave commented out for an anonymous broker.
+MQTTuser=
+
+# Password for the broker user (empty)
+MQTTpass=
+
+# Prefix for all published topics (solarmax)
+MQTTtopic=solarmax
+
+# QoS used for publishing, 0, 1 or 2 (0)
+MQTTqos=0
+
+# Publish retained, so a subscriber gets the last value immediately
+# after connecting, 0 or 1 (1)
+MQTTretain=1
+
+# Power in watts below which a failing inverter counts as "shut down for the
+# night" (200). Only then pac=0 and the last kt0 are published while the
+# inverter is unreachable. If the last sample before the failure was higher,
+# the inverter might still be producing, so nothing is published and
+# consumers like evcc correctly report the meter as outdated.
+Nightpower=200
+
+## InfluxDB settings
+
+# Base URL of the InfluxDB v2 server (empty). http://influxdb:8086 fits the
+# docker-compose example. As long as this is empty, missing or commented out,
+# nothing is written to InfluxDB.
+INFLUXurl=http://influxdb:8086
+
+# Organization
+INFLUXorg=my-org
+
+# Bucket to write into
+INFLUXbucket=solarmax
+
+# API token with write permission for the bucket, e.g. the value of
+# DOCKER_INFLUXDB_INIT_ADMIN_TOKEN from .env
+INFLUXtoken=my-write-token
+
+# Measurement name (solarmax)
+INFLUXmeasurement=solarmax

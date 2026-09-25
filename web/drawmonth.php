@@ -14,6 +14,7 @@
 		// Select daily energy for each day of month
 		// If you are experiencing problems with the value 'kdy' especially the days very first 'kdy' is equal to the last one of the previous day comment in the next line and comment out the following one. Be aware: This is !!!untested!!! Don't slap me if something's going wrong!
 		 $result = @mysql_query("SELECT DAY($table.created) AS day, kdy FROM $table, (SELECT MAX(created) AS created FROM $table WHERE MONTH(created)=$date[mon] AND YEAR(created)=$date[year] GROUP BY DAYOFYEAR(created)) AS sublog WHERE $table.created=sublog.created AND MONTH($table.created)=$date[mon] AND YEAR($table.created)=$date[year]") or die(mysql_error());
+		# original, commented out due to errors: $result = @mysql_query("SELECT DAY(created) AS day, MAX(kdy) AS kdy FROM $table WHERE MONTH(created)=$date[mon] AND YEAR(created)=$date[year] GROUP BY DAYOFYEAR(created)") or die(mysql_error());
 
 		if (mysql_num_rows($result) == 0) {
 			// No data...create dummy image

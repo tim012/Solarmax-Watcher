@@ -5,9 +5,9 @@
        Improvements by Frank Lassowski flassowski@gmx.de in August 2010
        This program is now licensed under GPLv2 or later http://www.gnu.org/licenses/gpl2.html
     */
-   $title="Solar Info Eggenstrasse 3";
-   $slogan1="Photovoltaik-Anlage: 13.44 kWp (84 x 3S MegaSlate 2) / SolarMax 13MT3";
-   $link0="http://luethi.dyndns.org/solarmax/solarertrag.php";
+   $title="Solaranlage";
+   $slogan1="Photovoltaik-Anlage 1: XX kWp SolarMax";
+   $link0="solarertrag.php";
    $link1="solarertrag.php?wr=1";
 
    echo "<div id=\"header\">\n";

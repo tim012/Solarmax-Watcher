@@ -1,0 +1,16 @@
+# Grafana loads the SolarMax dashboards from the folder grafana/dashboards/
+# (mounted into the container, see docker-compose.example.yml). Changes: regenerate
+# them in the repo, git pull on the server – Grafana picks them up within
+# updateIntervalSeconds, no restart needed.
+apiVersion: 1
+providers:
+  - name: solarmax
+    type: file
+    folder: SolarMax
+    updateIntervalSeconds: 30
+    # dashboards are read-only in the UI; every change goes through the repo
+    allowUiUpdates: false
+    # file deleted in the repo -> dashboard deleted in Grafana
+    disableDeletion: false
+    options:
+      path: /etc/grafana/dashboards/solarmax
