@@ -269,15 +269,15 @@ Licensed under the GNU General Public License v2 or later, see `LICENSE`.
 The logger and the visualizer were written by zagibu in July 2010 (originally
 under WTFPL 2), improved by Frank Lassowski in August/September 2010 and by
 sleepprogger in January 2012. Adaption to the SolarMax MT3 series by Andreas
-Lüthi. InfluxDB and MQTT output, Docker setup and Grafana dashboards were added
-in this fork.
+Lüthi. InfluxDB and MQTT output, Docker setup and Grafana dashboards by tim012.
 
-| Contributor       | Contact                  |
-|-------------------|--------------------------|
-| zagibu            | zagibu@gmx.ch            |
-| Frank Lassowski   | flassowski@gmx.de        |
-| Stephan Collet    | stephan@collet-online.de |
-| Rene Essink       | supergudrun@web.de       |
-| Thomas Kattenbeck | kattenbeck@gmx.de        |
-| sleepprogger      | wwrStuff@gmx.de          |
-| Andreas Lüthi     |                          |
+| Contributor       | Contact                   |
+|-------------------|---------------------------|
+| zagibu            | zagibu@gmx.ch             |
+| Frank Lassowski   | flassowski@gmx.de         |
+| Stephan Collet    | stephan@collet-online.de  |
+| Rene Essink       | supergudrun@web.de        |
+| Thomas Kattenbeck | kattenbeck@gmx.de         |
+| sleepprogger      | wwrStuff@gmx.de           |
+| Andreas Lüthi     |                           |
+| tim012            | https://github.com/tim012 |
